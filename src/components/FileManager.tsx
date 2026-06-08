@@ -1,124 +1,102 @@
-'use client';
+'use client'
 
-import { useState, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import type { SongFile } from '@/lib/database.types'
+import { useRouter } from 'next/navigation'
 
-interface FileRecord {
-  id: string;
-  label: string;
-  kind: string;
-  storage_path: string;
+interface FileManagerProps {
+  songId: string
+  files: SongFile[]
 }
 
-export default function FileManager({
-  songId,
-  initialFiles,
-}: {
-  songId: string;
-  initialFiles: FileRecord[];
-}) {
-  const [files, setFiles] = useState<FileRecord[]>(initialFiles);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
-  const labelRef = useRef<HTMLInputElement>(null);
-  const kindRef = useRef<HTMLSelectElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
+const kindOptions = [
+  { value: 'audio', label: 'Audio' },
+  { value: 'playback', label: 'Playback' },
+  { value: 'sheet', label: 'Partition' },
+]
+
+export default function FileManager({ songId, files: initialFiles }: FileManagerProps) {
+  const router = useRouter()
+  const supabase = createClient()
+  const [files, setFiles] = useState(initialFiles)
+  const [label, setLabel] = useState('')
+  const [kind, setKind] = useState<'audio' | 'playback' | 'sheet'>('audio')
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleUpload(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    const label = labelRef.current?.value.trim();
-    const kind = kindRef.current?.value as 'audio' | 'playback' | 'sheet';
-    const file = fileRef.current?.files?.[0];
-    if (!label || !file) { setError('Label et fichier requis.'); return; }
+    e.preventDefault()
+    const file = fileRef.current?.files?.[0]
+    if (!file || !label) return
+    setUploading(true)
+    setError('')
 
-    setUploading(true);
-    const ext = file.name.split('.').pop();
-    const uuid = crypto.randomUUID();
-    const path = `songs/${songId}/${uuid}-${file.name}`;
+    const ext = file.name.split('.').pop()
+    const uuid = crypto.randomUUID()
+    const path = `songs/${songId}/${uuid}-${file.name}`
 
-    const { error: upErr } = await supabase.storage.from('media').upload(path, file);
-    if (upErr) { setError(upErr.message); setUploading(false); return; }
+    const { error: uploadErr } = await supabase.storage.from('media').upload(path, file)
+    if (uploadErr) { setError(uploadErr.message); setUploading(false); return }
 
-    const { data: row, error: dbErr } = await supabase
-      .from('song_files')
-      .insert({ song_id: songId, label, kind, storage_path: path })
-      .select()
-      .single();
+    const { data, error: dbErr } = await supabase.from('song_files').insert({
+      song_id: songId, label, kind, storage_path: path,
+    }).select().single()
+    if (dbErr) { setError(dbErr.message); setUploading(false); return }
 
-    if (dbErr) { setError(dbErr.message); setUploading(false); return; }
-
-    setFiles(f => [...f, row as FileRecord]);
-    if (labelRef.current) labelRef.current.value = '';
-    if (fileRef.current) fileRef.current.value = '';
-    setUploading(false);
+    setFiles(f => [...f, data])
+    setLabel('')
+    if (fileRef.current) fileRef.current.value = ''
+    setUploading(false)
+    router.refresh()
   }
 
-  async function handleDelete(file: FileRecord) {
-    if (!confirm(`Supprimer « ${file.label} » ?`)) return;
-    await supabase.storage.from('media').remove([file.storage_path]);
-    await supabase.from('song_files').delete().eq('id', file.id);
-    setFiles(f => f.filter(x => x.id !== file.id));
+  async function handleDelete(fileId: string, storagePath: string) {
+    if (!confirm('Supprimer ce fichier ?')) return
+    await supabase.storage.from('media').remove([storagePath])
+    await supabase.from('song_files').delete().eq('id', fileId)
+    setFiles(f => f.filter(x => x.id !== fileId))
+    router.refresh()
   }
+
+  const inputCls = "border border-[#E2B36A]/60 rounded-lg px-3 py-2 bg-[#FBF6EC] text-[#5A3318] focus:outline-none focus:ring-2 focus:ring-[#B87333]/40"
 
   return (
-    <div className="space-y-4">
-      <h3 className="font-cinzel text-xs uppercase tracking-widest text-[#B87333]">
-        Fichiers audio / playbacks
-      </h3>
+    <div>
+      <h3 className="font-cinzel font-bold text-[#5A3318] mb-4">Fichiers audio / playbacks</h3>
 
-      {files.length > 0 ? (
-        <ul className="space-y-2">
-          {files.map(f => (
-            <li key={f.id} className="flex items-center gap-3 bg-[#FBF6EC] border border-[#E2B36A]/40 rounded-lg px-3 py-2">
-              <span className="text-sm flex-1 text-[#5A3318]">{f.label}</span>
-              <span className="text-xs text-[#B87333]/60">{f.kind}</span>
-              <button
-                onClick={() => handleDelete(f)}
-                className="text-xs text-red-600 hover:underline"
-              >
+      {/* Existing files */}
+      {files.length > 0 && (
+        <ul className="space-y-2 mb-4">
+          {files.map(file => (
+            <li key={file.id} className="flex items-center justify-between bg-[#E2B36A]/10 rounded-lg px-3 py-2 text-sm">
+              <span className="text-[#5A3318]">
+                <span className="text-[#B87333] text-xs mr-1">[{file.kind}]</span>{file.label}
+              </span>
+              <button onClick={() => handleDelete(file.id, file.storage_path)} className="text-red-500 hover:text-red-700 text-xs">
                 Supprimer
               </button>
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="text-sm text-[#5A3318]/50">Aucun fichier.</p>
       )}
 
-      <form onSubmit={handleUpload} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-        <input
-          ref={labelRef}
-          placeholder="Label (ex : Playback A)"
-          className="border border-[#E2B36A]/60 rounded-lg px-3 py-2 bg-[#FBF6EC] text-[#5A3318] text-sm focus:outline-none focus:ring-2 focus:ring-[#B87333]/50"
-        />
-        <select
-          ref={kindRef}
-          defaultValue="audio"
-          className="border border-[#E2B36A]/60 rounded-lg px-3 py-2 bg-[#FBF6EC] text-[#5A3318] text-sm focus:outline-none focus:ring-2 focus:ring-[#B87333]/50"
-        >
-          <option value="audio">Audio</option>
-          <option value="playback">Playback</option>
-          <option value="sheet">Partition</option>
-        </select>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="audio/*,.pdf"
-          className="text-sm text-[#5A3318] file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-[#B87333]/20 file:text-[#5A3318] hover:file:bg-[#B87333]/30 file:text-xs"
-        />
-        <div className="sm:col-span-3 flex gap-3 items-center">
-          <button
-            type="submit"
-            disabled={uploading}
-            className="bg-[#5A3318] text-white font-cinzel text-sm px-4 py-2 rounded-lg hover:bg-[#3d2010] transition-colors disabled:opacity-60"
-          >
-            {uploading ? 'Envoi…' : 'Ajouter le fichier'}
-          </button>
-          {error && <p className="text-xs text-red-600">{error}</p>}
+      {/* Upload form */}
+      <form onSubmit={handleUpload} className="space-y-3">
+        <p className="text-sm font-semibold text-[#5A3318]">Ajouter un fichier</p>
+        <div className="grid grid-cols-2 gap-3">
+          <input className={inputCls} placeholder="Label (ex: Soprano, piste 1)" value={label} onChange={e => setLabel(e.target.value)} required />
+          <select className={inputCls} value={kind} onChange={e => setKind(e.target.value as 'audio' | 'playback' | 'sheet')}>
+            {kindOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </div>
+        <input ref={fileRef} type="file" accept="audio/*,application/pdf" className={`${inputCls} w-full`} required />
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+        <button type="submit" disabled={uploading} className="bg-[#B87333] hover:bg-[#5A3318] text-white text-sm px-4 py-2 rounded-lg transition-colors disabled:opacity-60">
+          {uploading ? 'Upload…' : 'Téléverser'}
+        </button>
       </form>
     </div>
-  );
+  )
 }

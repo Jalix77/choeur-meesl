@@ -1,113 +1,74 @@
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-import SongSheet from '@/components/SongSheet';
-import SongHeader from '@/components/SongHeader';
-import AudioList from '@/components/AudioList';
-import type { Notation } from '@/lib/chords';
+import { createClient } from '@/lib/supabase/server'
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import SongSheet from '@/components/SongSheet'
+import AudioList from '@/components/AudioList'
+import type { Profile, SongFile } from '@/lib/database.types'
 
-export default async function SongPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ t?: string }>;
+export default async function SongPage({ params, searchParams }: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ t?: string }>
 }) {
-  const { id } = await params;
-  const { t } = await searchParams;
-  const supabase = await createClient();
+  const { id } = await params
+  const { t } = await searchParams
+  const initialTranspose = t ? parseInt(t) : 0
 
-  const { data: song } = await supabase
-    .from('songs')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const supabase = await createClient()
 
-  if (!song) notFound();
+  const { data: song } = await supabase.from('songs').select('*').eq('id', id).single()
+  if (!song) notFound()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', (await supabase.auth.getUser()).data.user!.id)
-    .single();
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
+  const isAdmin = (profile as Pick<Profile, 'role'> | null)?.role === 'admin'
 
-  // Signed URLs for audio files
-  const { data: files } = await supabase
+  const { data: songFiles } = await supabase
     .from('song_files')
-    .select('id, label, kind, storage_path')
+    .select('*')
     .eq('song_id', id)
-    .order('created_at');
+    .order('created_at')
 
-  const audioFiles = await Promise.all(
-    (files ?? []).map(async f => {
-      const { data } = await supabase.storage
-        .from('media')
-        .createSignedUrl(f.storage_path, 3600);
-      return { ...f, signedUrl: data?.signedUrl ?? '' };
+  // Generate signed URLs for audio files
+  const filesWithUrls = await Promise.all(
+    (songFiles ?? []).map(async (file: SongFile) => {
+      const { data } = await supabase.storage.from('media').createSignedUrl(file.storage_path, 3600)
+      return { ...file, signedUrl: data?.signedUrl ?? '' }
     })
-  );
-
-  const defaultTranspose = t ? parseInt(t, 10) || 0 : 0;
+  )
 
   return (
     <div className="space-y-6">
-      {/* Admin actions */}
-      {profile?.role === 'admin' && (
-        <div className="no-print flex gap-3">
-          <Link
-            href={`/chants/${id}/modifier`}
-            className="text-sm bg-[#5A3318] text-white px-4 py-2 rounded-lg font-cinzel hover:bg-[#3d2010] transition-colors"
-          >
-            Modifier
-          </Link>
-          <Link
-            href={`/chants/${id}/imprimer?t=${defaultTranspose}`}
-            target="_blank"
-            className="text-sm border border-[#B87333] text-[#B87333] px-4 py-2 rounded-lg font-cinzel hover:bg-[#B87333]/10 transition-colors"
-          >
-            Imprimer / PDF
-          </Link>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link href="/chants" className="text-xs text-[#B87333] hover:underline">← Retour aux chants</Link>
+          <h1 className="font-cinzel text-2xl font-bold text-[#5A3318] mt-1">{song.title}</h1>
         </div>
-      )}
-      {profile?.role !== 'admin' && (
-        <div className="no-print flex gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Link
-            href={`/chants/${id}/imprimer?t=${defaultTranspose}`}
-            target="_blank"
-            className="text-sm border border-[#B87333] text-[#B87333] px-4 py-2 rounded-lg font-cinzel hover:bg-[#B87333]/10 transition-colors"
+            href={`/chants/${id}/imprimer?t=${initialTranspose}`}
+            className="border border-[#B87333] text-[#B87333] hover:bg-[#B87333] hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
           >
-            Imprimer / PDF
+            🖨 Imprimer / PDF
           </Link>
+          {isAdmin && (
+            <Link
+              href={`/chants/${id}/modifier`}
+              className="bg-[#B87333] hover:bg-[#5A3318] text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Modifier
+            </Link>
+          )}
         </div>
-      )}
-
-      <div className="bg-white/50 border border-[#E2B36A]/40 rounded-xl shadow-sm p-6">
-        <SongHeader
-          title={song.title}
-          keySignature={song.key_signature}
-          tempo={song.tempo}
-          timeSignature={song.time_signature}
-          author={song.author}
-        />
-        <SongSheet
-          body={song.body}
-          defaultNotation={song.notation as Notation}
-          defaultTranspose={defaultTranspose}
-        />
       </div>
 
-      {audioFiles.filter(f => f.signedUrl).length > 0 && (
-        <div className="bg-white/50 border border-[#E2B36A]/40 rounded-xl shadow-sm p-6">
-          <AudioList files={audioFiles.filter(f => f.signedUrl)} />
-        </div>
-      )}
+      {/* Song sheet */}
+      <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl p-5 shadow-sm">
+        <SongSheet song={song} initialTranspose={initialTranspose} />
+      </div>
 
-      {song.notes && (
-        <div className="bg-white/40 border border-[#E2B36A]/30 rounded-xl p-5">
-          <p className="font-cinzel text-xs uppercase tracking-widest text-[#B87333] mb-2">Notes</p>
-          <p className="text-sm text-[#5A3318]/80 whitespace-pre-wrap">{song.notes}</p>
-        </div>
-      )}
+      {/* Audio files */}
+      <AudioList files={filesWithUrls} />
     </div>
-  );
+  )
 }

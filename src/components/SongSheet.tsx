@@ -1,167 +1,155 @@
-'use client';
+'use client'
 
-import { useState, useRef, useEffect } from 'react';
-import {
-  parseSong,
-  transposeSong,
-  sectionColor,
-  type Notation,
-  type ParsedSong,
-} from '@/lib/chords';
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { parseSong, transposeSong, sectionColor, type Notation } from '@/lib/chords'
+import type { Song } from '@/lib/database.types'
 
 interface SongSheetProps {
-  body: string;
-  defaultNotation: Notation;
-  defaultTranspose?: number;
-  printMode?: boolean;
+  song: Song
+  initialTranspose?: number
+  printMode?: boolean
 }
 
-interface RenderedToken {
-  chord: string;
-  lyric: string;
-  minWidth: number;
-}
+export default function SongSheet({ song, initialTranspose = 0, printMode = false }: SongSheetProps) {
+  const [semitones, setSemitones] = useState(initialTranspose)
+  const [notation, setNotation] = useState<Notation>(song.notation ?? 'latin')
+  const [fontSize, setFontSize] = useState(14)
 
-function TokenCell({ chord, lyric }: { chord: string; lyric: string }) {
-  const chordRef = useRef<HTMLSpanElement>(null);
-  const lyricRef = useRef<HTMLSpanElement>(null);
-  const [width, setWidth] = useState<number | undefined>(undefined);
-
-  useEffect(() => {
-    if (chordRef.current && lyricRef.current) {
-      const cw = chordRef.current.getBoundingClientRect().width;
-      const lw = lyricRef.current.getBoundingClientRect().width;
-      setWidth(Math.max(cw, lw) + 4);
-    }
-  }, [chord, lyric]);
+  const parsed = parseSong(song.body)
+  const transposed = transposeSong(parsed, semitones, notation)
 
   return (
-    <span
-      className="inline-flex flex-col items-start"
-      style={width ? { minWidth: width } : undefined}
-    >
-      <span
-        ref={chordRef}
-        className="font-mono-chord font-bold text-[#9C3D6E] text-sm leading-none whitespace-nowrap"
-      >
-        {chord || ' '}
-      </span>
-      <span
-        ref={lyricRef}
-        className="font-spectral text-[#5A3318] leading-snug whitespace-pre"
-      >
-        {lyric || ' '}
-      </span>
-    </span>
-  );
-}
-
-export default function SongSheet({
-  body,
-  defaultNotation,
-  defaultTranspose = 0,
-  printMode = false,
-}: SongSheetProps) {
-  const [semitones, setSemitones] = useState(defaultTranspose);
-  const [notation, setNotation] = useState<Notation>(defaultNotation);
-  const [fontSize, setFontSize] = useState(16);
-
-  const parsed: ParsedSong = parseSong(body);
-  const transposed = transposeSong(parsed, semitones, notation);
-
-  const sections = transposed.sections;
-
-  // Split into two columns
-  const half = Math.ceil(sections.length / 2);
-  const col1 = sections.slice(0, half);
-  const col2 = sections.slice(half);
-
-  return (
-    <div style={{ fontSize }}>
-      {/* Controls — hidden on print */}
+    <div className="song-sheet">
+      {/* Controls (hidden in print mode) */}
       {!printMode && (
-        <div className="no-print flex flex-wrap items-center gap-3 mb-6 bg-white/40 border border-[#E2B36A]/40 rounded-xl px-4 py-3">
+        <div className="no-print flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#E2B36A]/20 border border-[#E2B36A]/50 rounded-xl">
           {/* Transpose */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-cinzel uppercase tracking-widest text-[#B87333]">Transposer</span>
-            <button
-              onClick={() => setSemitones(s => s - 1)}
-              className="w-7 h-7 rounded border border-[#E2B36A] text-[#5A3318] hover:bg-[#E2B36A]/30 font-bold text-lg leading-none"
-            >−</button>
-            <span className="w-8 text-center text-sm font-mono text-[#5A3318]">
-              {semitones > 0 ? `+${semitones}` : semitones}
-            </span>
-            <button
-              onClick={() => setSemitones(s => s + 1)}
-              className="w-7 h-7 rounded border border-[#E2B36A] text-[#5A3318] hover:bg-[#E2B36A]/30 font-bold text-lg leading-none"
-            >+</button>
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-semibold text-[#5A3318] mr-1">Transposer</span>
+            <button onClick={() => setSemitones(s => s - 1)} className="w-7 h-7 rounded bg-[#B87333] text-white font-bold hover:bg-[#5A3318]">−</button>
+            <span className="w-8 text-center text-sm font-mono text-[#5A3318]">{semitones > 0 ? `+${semitones}` : semitones}</span>
+            <button onClick={() => setSemitones(s => s + 1)} className="w-7 h-7 rounded bg-[#B87333] text-white font-bold hover:bg-[#5A3318]">+</button>
           </div>
 
-          <div className="h-5 w-px bg-[#E2B36A]/40" />
-
-          {/* Text size */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-cinzel uppercase tracking-widest text-[#B87333]">Taille</span>
-            <button
-              onClick={() => setFontSize(s => Math.max(10, s - 2))}
-              className="w-7 h-7 rounded border border-[#E2B36A] text-[#5A3318] hover:bg-[#E2B36A]/30 font-bold text-lg leading-none"
-            >−</button>
+          {/* Font size */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-semibold text-[#5A3318] mr-1">Taille</span>
+            <button onClick={() => setFontSize(s => Math.max(10, s - 1))} className="w-7 h-7 rounded bg-[#7A4A20] text-white font-bold hover:bg-[#5A3318]">−</button>
             <span className="w-8 text-center text-sm font-mono text-[#5A3318]">{fontSize}</span>
-            <button
-              onClick={() => setFontSize(s => Math.min(32, s + 2))}
-              className="w-7 h-7 rounded border border-[#E2B36A] text-[#5A3318] hover:bg-[#E2B36A]/30 font-bold text-lg leading-none"
-            >+</button>
+            <button onClick={() => setFontSize(s => Math.min(24, s + 1))} className="w-7 h-7 rounded bg-[#7A4A20] text-white font-bold hover:bg-[#5A3318]">+</button>
           </div>
-
-          <div className="h-5 w-px bg-[#E2B36A]/40" />
 
           {/* Notation toggle */}
           <button
             onClick={() => setNotation(n => n === 'latin' ? 'anglo' : 'latin')}
-            className="text-xs font-cinzel uppercase tracking-widest text-[#B87333] hover:text-[#5A3318] border border-[#E2B36A]/60 rounded px-2.5 py-1 transition-colors"
+            className="px-3 py-1 rounded border border-[#B87333] text-[#B87333] text-xs font-semibold hover:bg-[#B87333] hover:text-white transition-colors"
           >
             {notation === 'latin' ? 'Do Ré Mi → C D E' : 'C D E → Do Ré Mi'}
           </button>
+
+          {/* Reset */}
+          {semitones !== 0 && (
+            <button onClick={() => setSemitones(0)} className="text-xs text-[#9C3D6E] hover:underline">
+              Réinitialiser
+            </button>
+          )}
         </div>
       )}
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {[col1, col2].map((col, ci) => (
-          <div key={ci} className="space-y-6">
-            {col.map((section, si) => (
-              <div key={si}>
-                {section.label && (
-                  <p className={`font-cinzel text-xs uppercase tracking-widest font-semibold mb-1 ${sectionColor(section.label)}`}>
-                    {section.label}
-                  </p>
-                )}
-                <div className="space-y-1">
-                  {section.lines.map((line, li) => {
-                    if (!line.hasChords && line.tokens.every(t => !t.lyric.trim())) {
-                      return <div key={li} className="h-2" />;
-                    }
-                    if (!line.hasChords) {
-                      return (
-                        <p key={li} className="font-spectral text-[#5A3318] leading-snug">
-                          {line.tokens.map(t => t.lyric).join('')}
-                        </p>
-                      );
-                    }
-                    return (
-                      <div key={li} className="flex flex-wrap">
-                        {line.tokens.map((token, ti) => (
-                          <TokenCell key={ti} chord={token.chord} lyric={token.lyric} />
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+      {/* Song meta */}
+      <div className="mb-4 flex flex-wrap gap-4 text-sm">
+        {song.key_signature && (
+          <span className="text-[#B87333]">
+            <strong>Tonalité :</strong> {song.key_signature}
+            {semitones !== 0 && <span className="ml-1 text-xs text-[#9C3D6E]">(+{semitones} ½ tons)</span>}
+          </span>
+        )}
+        {song.tempo && <span className="text-[#7A4A20]"><strong>Tempo :</strong> ♩ {song.tempo} bpm</span>}
+        {song.time_signature && <span className="text-[#7A4A20]"><strong>Mesure :</strong> {song.time_signature}</span>}
+        {song.author && <span className="text-[#7A4A20]"><strong>Source :</strong> {song.author}</span>}
+      </div>
+
+      {/* Sections in two columns */}
+      <div className="columns-1 md:columns-2 gap-6" style={{ fontSize: `${fontSize}px` }}>
+        {transposed.sections.map((section, si) => (
+          <div key={si} className="break-inside-avoid mb-5">
+            {section.label && (
+              <h3 className={`font-cinzel font-bold text-sm mb-2 uppercase tracking-wide ${sectionColor(section.label)}`}>
+                {section.label}
+              </h3>
+            )}
+            {section.lines.map((line, li) => (
+              <SongLine key={li} tokens={line.tokens} hasChords={line.hasChords} />
             ))}
           </div>
         ))}
       </div>
+
+      {song.notes && (
+        <div className="mt-4 p-3 border-l-2 border-[#E2B36A] bg-[#E2B36A]/10 rounded-r text-sm text-[#7A4A20] italic">
+          <strong className="not-italic font-semibold">Notes :</strong> {song.notes}
+        </div>
+      )}
     </div>
-  );
+  )
+}
+
+interface Token { chord: string; lyric: string }
+
+function SongLine({ tokens, hasChords }: { tokens: Token[]; hasChords: boolean }) {
+  const lineRef = useRef<HTMLDivElement>(null)
+  const [, forceUpdate] = useState(0)
+
+  // After mount, measure chord widths and expand syllable min-widths
+  useEffect(() => {
+    forceUpdate(n => n + 1)
+  }, [tokens])
+
+  if (!hasChords) {
+    return (
+      <div className="leading-relaxed text-[#5A3318] font-spectral min-h-[1.2em]">
+        {tokens.map((t, i) => t.lyric || (i === 0 ? ' ' : ''))}
+      </div>
+    )
+  }
+
+  return (
+    <div ref={lineRef} className="mb-1">
+      {/* Chord row */}
+      <div className="flex flex-wrap leading-none mb-0.5">
+        {tokens.map((token, i) =>
+          token.chord ? (
+            <ChordSyllable key={i} chord={token.chord} lyric={token.lyric} />
+          ) : token.lyric ? (
+            <span key={i} className="text-[#5A3318] font-spectral whitespace-pre">{token.lyric}</span>
+          ) : null
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ChordSyllable({ chord, lyric }: { chord: string; lyric: string }) {
+  const chordRef = useRef<HTMLSpanElement>(null)
+  const lyricRef = useRef<HTMLSpanElement>(null)
+  const [minWidth, setMinWidth] = useState(0)
+
+  useEffect(() => {
+    if (chordRef.current && lyricRef.current) {
+      const cw = chordRef.current.getBoundingClientRect().width
+      const lw = lyricRef.current.getBoundingClientRect().width
+      if (cw > lw) setMinWidth(cw + 4)
+    }
+  }, [chord, lyric])
+
+  return (
+    <span className="inline-flex flex-col" style={{ minWidth: minWidth || undefined }}>
+      <span ref={chordRef} className="font-mono-chords font-bold text-[#9C3D6E] text-[0.8em] leading-tight whitespace-nowrap">
+        {chord}
+      </span>
+      <span ref={lyricRef} className="text-[#5A3318] font-spectral leading-relaxed whitespace-pre">
+        {lyric || ' '}
+      </span>
+    </span>
+  )
 }

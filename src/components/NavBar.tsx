@@ -1,88 +1,80 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link'
+import Image from 'next/image'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import type { Profile } from '@/lib/database.types'
 
 interface NavBarProps {
-  role: 'admin' | 'member';
-  fullName: string;
+  profile: Profile | null
 }
 
-const links = [
-  { href: '/', label: 'Tableau de bord' },
-  { href: '/chants', label: 'Chants' },
-  { href: '/planning', label: 'Planning' },
-  { href: '/annonces', label: 'Annonces' },
-];
+export default function NavBar({ profile }: NavBarProps) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
 
-export default function NavBar({ role, fullName }: NavBarProps) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const supabase = createClient();
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.push('/login');
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
   }
 
+  const isAdmin = profile?.role === 'admin'
+
+  const links = [
+    { href: '/', label: 'Tableau de bord' },
+    { href: '/chants', label: 'Chants' },
+    { href: '/planning', label: 'Planning' },
+    { href: '/annonces', label: 'Annonces' },
+    ...(isAdmin ? [{ href: '/admin/membres', label: 'Membres' }] : []),
+  ]
+
   return (
-    <header className="bg-[#5A3318] text-[#FBF6EC] shadow-md no-print">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Top brand bar */}
-        <div className="flex items-center gap-3 py-3 border-b border-[#E2B36A]/30">
-          <Image src="/logo-meesl.png" alt="Logo MEESL" width={40} height={40} className="object-contain" />
-          <div className="flex-1 min-w-0">
-            <h1 className="font-cinzel text-xs font-bold uppercase tracking-widest text-[#E2B36A] truncate">
-              Mission Église Évangélique Sel et Lumière
-            </h1>
-            <p className="font-cormorant italic text-[#FBF6EC]/70 text-xs hidden sm:block">
-              Prêcher, instruire et desservir la communauté !
-            </p>
+    <nav className="bg-[#5A3318] shadow-lg">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex items-center justify-between h-14">
+          {/* Logo + name */}
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/logo-meesl.png" alt="MEESL" width={32} height={32} className="object-contain" />
+            <span className="font-cinzel text-white text-sm font-bold tracking-wide hidden sm:block">
+              Chœur de Louange
+            </span>
+          </Link>
+
+          {/* Nav links */}
+          <div className="flex items-center gap-1">
+            {links.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`px-3 py-1.5 rounded text-sm font-cinzel tracking-wide transition-colors ${
+                  pathname === link.href
+                    ? 'bg-[#B87333] text-white'
+                    : 'text-[#E2B36A] hover:text-white hover:bg-[#7A4A20]'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
-          <div className="text-right shrink-0">
-            <p className="font-cinzel text-xs text-[#E2B36A] uppercase tracking-widest">Chœur de Louange</p>
-            <p className="text-[10px] text-[#FBF6EC]/60 hidden sm:block">{fullName}</p>
+
+          {/* User + signout */}
+          <div className="flex items-center gap-2">
+            <span className="text-[#E2B36A] text-xs hidden md:block">
+              {profile?.full_name}
+              {isAdmin && <span className="ml-1 text-[#B87333]">(admin)</span>}
+            </span>
+            <button
+              onClick={handleSignOut}
+              className="text-xs text-[#E2B36A] hover:text-white border border-[#B87333]/50 hover:border-white px-2 py-1 rounded transition-colors"
+            >
+              Déconnexion
+            </button>
           </div>
         </div>
-
-        {/* Navigation */}
-        <nav className="flex items-center gap-1 py-2 overflow-x-auto">
-          {links.map(link => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors ${
-                pathname === link.href
-                  ? 'bg-[#B87333] text-white'
-                  : 'text-[#FBF6EC]/80 hover:bg-[#E2B36A]/20'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-          {role === 'admin' && (
-            <Link
-              href="/admin/membres"
-              className={`px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors ${
-                pathname.startsWith('/admin')
-                  ? 'bg-[#B87333] text-white'
-                  : 'text-[#FBF6EC]/80 hover:bg-[#E2B36A]/20'
-              }`}
-            >
-              Membres
-            </Link>
-          )}
-          <div className="flex-1" />
-          <button
-            onClick={signOut}
-            className="px-3 py-1.5 rounded text-sm text-[#FBF6EC]/60 hover:text-[#FBF6EC] hover:bg-[#E2B36A]/20 transition-colors whitespace-nowrap"
-          >
-            Déconnexion
-          </button>
-        </nav>
       </div>
-    </header>
-  );
+    </nav>
+  )
 }

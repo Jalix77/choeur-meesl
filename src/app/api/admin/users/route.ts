@@ -1,83 +1,87 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+﻿import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-async function verifyAdmin() {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-  if (profile?.role !== 'admin') return null;
-  return user;
+async function getCallerProfile(request: NextRequest) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  return profile
 }
 
-// POST — create user
 export async function POST(request: NextRequest) {
-  const caller = await verifyAdmin();
-  if (!caller) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
-
-  const { full_name, email, password, role } = await request.json();
-  if (!full_name || !email || !password) {
-    return NextResponse.json({ error: 'Champs requis manquants' }, { status: 400 });
+  const profile = await getCallerProfile(request)
+  if (profile?.role !== "admin") {
+    return NextResponse.json({ error: "Non autorise" }, { status: 403 })
   }
 
-  const admin = createAdminClient();
+  const { email, password, full_name, role } = await request.json()
+  const admin = createAdminClient()
+
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name, role: role ?? 'member' },
-  });
+    user_metadata: { full_name, role: role ?? "member" },
+  })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-
-  // Wait briefly for trigger, then fetch profile
-  await new Promise(r => setTimeout(r, 500));
-  const supabase = await createServerClient();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, active, created_at')
-    .eq('id', data.user.id)
-    .single();
-
-  return NextResponse.json({ profile });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json({ user: data.user })
 }
 
-// DELETE — delete user
-export async function DELETE(request: NextRequest) {
-  const caller = await verifyAdmin();
-  if (!caller) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
-
-  const { id } = await request.json();
-  if (!id) return NextResponse.json({ error: 'ID requis' }, { status: 400 });
-
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.deleteUser(id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-
-  return NextResponse.json({ success: true });
-}
-
-// PATCH — update profile (active / role)
 export async function PATCH(request: NextRequest) {
-  const caller = await verifyAdmin();
-  if (!caller) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+  const profile = await getCallerProfile(request)
+  if (profile?.role !== "admin") {
+    return NextResponse.json({ error: "Non autorise" }, { status: 403 })
+  }
 
-  const { id, active, role } = await request.json();
-  if (!id) return NextResponse.json({ error: 'ID requis' }, { status: 400 });
+  const body = await request.json()
+  const { id, ...updates } = body
 
-  const supabase = await createServerClient();
-  type ProfileUpdate = { active?: boolean; role?: 'admin' | 'member' };
-  const update: ProfileUpdate = {};
-  if (active !== undefined) update.active = active;
-  if (role !== undefined) update.role = role;
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
 
-  const { error } = await supabase.from('profiles').update(update).eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const { error } = await supabase
+    .from("profiles")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
 
-  return NextResponse.json({ success: true });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json({ ok: true })
+}
+
+export async function DELETE(request: NextRequest) {
+  const profile = await getCallerProfile(request)
+  if (profile?.role !== "admin") {
+    return NextResponse.json({ error: "Non autorise" }, { status: 403 })
+  }
+
+  const { id } = await request.json()
+  const admin = createAdminClient()
+
+  const { error } = await admin.auth.admin.deleteUser(id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json({ ok: true })
 }

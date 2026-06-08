@@ -184,3 +184,11 @@ export interface Database {
     CompositeTypes: Record<string, never>;
   };
 }
+
+// Convenience type aliases
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type Song = Database['public']['Tables']['songs']['Row']
+export type SongFile = Database['public']['Tables']['song_files']['Row']
+export type Rehearsal = Database['public']['Tables']['rehearsals']['Row']
+export type RehearsalSong = Database['public']['Tables']['rehearsal_songs']['Row']
+export type Announcement = Database['public']['Tables']['announcements']['Row']
