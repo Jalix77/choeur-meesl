@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init *)",
+      "Bash(git commit *)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git)",
+      "PowerShell(New-Item -ItemType Directory -Path \"src\\\\lib\\\\supabase\" -Force)",
+      "PowerShell(Move-Item \"chords.ts\" \"src\\\\lib\\\\chords.ts\" -Force)",
+      "PowerShell(Move-Item \"logo-meesl.png\" \"public\\\\logo-meesl.png\" -Force)"
+    ]
+  }
+}

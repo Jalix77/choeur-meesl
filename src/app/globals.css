@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Spectral:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --cream: #FBF6EC;
+  --bronze: #B87333;
+  --deep-brown: #5A3318;
+  --gold: #E2B36A;
+  --burgundy: #9C3D6E;
+}
+
+body {
+  background-color: var(--cream);
+  color: var(--deep-brown);
+  font-family: 'Spectral', serif;
+}
+
+.font-cinzel { font-family: 'Cinzel', serif; }
+.font-cormorant { font-family: 'Cormorant Garamond', serif; }
+.font-spectral { font-family: 'Spectral', serif; }
+.font-mono-chord { font-family: 'JetBrains Mono', monospace; }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  .no-print { display: none !important; }
+  body { background: white !important; }
+}
