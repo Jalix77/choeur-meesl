@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -17,33 +15,39 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const supabase = createClient()
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    try {
+      const supabase = createClient()
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (authError) {
-      setError('Email ou mot de passe incorrect.')
-      setLoading(false)
-      return
-    }
-
-    if (data.user) {
-      // Check if account is active
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('active')
-        .eq('id', data.user.id)
-        .single()
-
-      if (!profile?.active) {
-        await supabase.auth.signOut()
-        setError('Compte désactivé, contactez un administrateur.')
+      if (authError) {
+        setError('Email ou mot de passe incorrect.')
         setLoading(false)
         return
       }
-    }
 
-    router.push('/')
-    router.refresh()
+      if (data.user) {
+        // Check if account is active
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('active')
+          .eq('id', data.user.id)
+          .single()
+
+        if (!profile?.active) {
+          await supabase.auth.signOut()
+          setError('Compte désactivé, contactez un administrateur.')
+          setLoading(false)
+          return
+        }
+      }
+
+      // Hard redirect — ensures middleware sees the fresh session cookie
+      window.location.href = '/'
+    } catch (err) {
+      console.error('Login error:', err)
+      setError('Une erreur est survenue. Veuillez réessayer.')
+      setLoading(false)
+    }
   }
 
   return (
