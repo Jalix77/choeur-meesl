@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import SongSheet from '@/components/SongSheet'
 import AudioList from '@/components/AudioList'
+import FileManager from '@/components/FileManager'
 import type { Profile, SongFile } from '@/lib/database.types'
 import { songFileBucket } from '@/lib/database.types'
 
@@ -59,7 +60,7 @@ export default async function SongPage({ params, searchParams }: {
               href={`/chants/${id}/modifier`}
               className="bg-[#B87333] hover:bg-[#5A3318] text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
             >
-              Modifier
+              Modifier le chant
             </Link>
           )}
         </div>
@@ -70,8 +71,17 @@ export default async function SongPage({ params, searchParams }: {
         <SongSheet song={song} initialTranspose={initialTranspose} />
       </div>
 
-      {/* Audio files */}
-      <AudioList files={filesWithUrls} canDelete={isAdmin} />
+      {/* Audio player — visible to all members when files exist */}
+      {filesWithUrls.length > 0 && (
+        <AudioList files={filesWithUrls} canDelete={isAdmin} />
+      )}
+
+      {/* Audio upload — admin only, always shown so they can add files */}
+      {isAdmin && (
+        <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl p-5 shadow-sm">
+          <FileManager songId={id} files={(songFiles ?? []) as SongFile[]} />
+        </div>
+      )}
     </div>
   )
 }
