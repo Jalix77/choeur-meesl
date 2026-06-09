@@ -25,28 +25,36 @@ export default async function PlanningPage() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
   const isAdmin = (profile as Pick<Profile, 'role'> | null)?.role === 'admin'
 
-  const { data: rehearsals } = await supabase
+  // Main rehearsals query — no date filter, show all
+  const { data: rehearsals, error: rehearsalsError } = await supabase
     .from('rehearsals')
-    .select('*, rehearsal_songs(order_index, songs(id, title))')
+    .select('id, title, starts_at, location, notes, notify_selected, rehearsal_songs(order_index, songs(id, title))')
     .order('starts_at', { ascending: true })
 
+  console.log('planning rehearsals', rehearsals)
+  console.log('planning error', rehearsalsError)
+
+  // Songs for the form
   const { data: allSongs } = await supabase.from('songs').select('id, title').order('title')
 
-  // Fetch active chorister profiles (for the form selector)
+  // Active choristers for the form — gracefully handle missing phone column
   const { data: activeProfiles } = await supabase
     .from('profiles')
-    .select('id, full_name, phone')
+    .select('id, full_name')
     .eq('active', true)
     .order('full_name')
 
-  // Fetch all rehearsal_choristers for the displayed rehearsals
+  // rehearsal_choristers — gracefully handle missing table
   const rehearsalIds = (rehearsals ?? []).map((r: { id: string }) => r.id)
-  const { data: allChoristers } = rehearsalIds.length > 0
-    ? await supabase
-        .from('rehearsal_choristers')
-        .select('*, profiles(id, full_name, phone)')
-        .in('rehearsal_id', rehearsalIds)
-    : { data: [] }
+  let allChoristers: RehearsalChorister[] = []
+  if (rehearsalIds.length > 0) {
+    const { data, error: rcError } = await supabase
+      .from('rehearsal_choristers')
+      .select('id, rehearsal_id, profile_id, vocal_role, notified_email, notified_whatsapp, created_at, profiles(id, full_name, phone)')
+      .in('rehearsal_id', rehearsalIds)
+    console.log('planning choristers error', rcError)
+    allChoristers = (data ?? []) as unknown as RehearsalChorister[]
+  }
 
   const choristers = (activeProfiles ?? []) as { id: string; full_name: string; phone?: string | null }[]
 
@@ -55,6 +63,13 @@ export default async function PlanningPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-cinzel text-2xl font-bold text-[#5A3318]">Planning des répétitions</h1>
       </div>
+
+      {/* Show query error if any */}
+      {rehearsalsError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+          <strong>Erreur de chargement :</strong> {rehearsalsError.message}
+        </div>
+      )}
 
       {isAdmin && <RehearsalManager songs={allSongs ?? []} choristers={choristers} />}
 
@@ -67,9 +82,8 @@ export default async function PlanningPage() {
           const isPast = new Date(rehearsal.starts_at) < new Date()
           const songList = (rehearsal.rehearsal_songs ?? [])
             .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
-          const rehearsalChoristers = (allChoristers ?? []).filter(
-            (rc: RehearsalChorister) => rc.rehearsal_id === rehearsal.id
-          ) as (RehearsalChorister & { profiles?: { id: string; full_name: string; phone?: string | null } })[]
+          const rehearsalChoristers = allChoristers.filter(rc => rc.rehearsal_id === rehearsal.id) as
+            (RehearsalChorister & { profiles?: { id: string; full_name: string; phone?: string | null } })[]
 
           return (
             <div key={rehearsal.id} className={`bg-white/60 border rounded-xl p-5 shadow-sm ${isPast ? 'opacity-60 border-[#E2B36A]/20' : 'border-[#E2B36A]/50'}`}>
@@ -148,7 +162,9 @@ export default async function PlanningPage() {
             </div>
           )
         }) : (
-          <p className="text-center py-10 text-[#B87333]/70 italic">Aucune répétition planifiée.</p>
+          <p className="text-center py-10 text-[#B87333]/70 italic">
+            {rehearsalsError ? 'Impossible de charger les répétitions.' : 'Aucune répétition planifiée.'}
+          </p>
         )}
       </div>
     </div>

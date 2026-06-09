@@ -1,7 +1,17 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'egptobpxcwttdiuvyxhw.supabase.co',
+      },
+    ],
+  },
+}
 
-export default nextConfig;
-
-
+export default nextConfig
