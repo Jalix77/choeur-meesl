@@ -10,112 +10,113 @@ interface SongSheetProps {
   printMode?: boolean
 }
 
-// Section label -> badge style matching the HTML canevas
-function sectionBadgeClass(label: string): string {
+function sectionBadge(label: string): React.CSSProperties {
   const l = label.toLowerCase()
-  if (l.includes('refrain') || l.includes('chorus')) return 'badge-refrain'
-  if (l.includes('pont') || l.includes('bridge'))    return 'badge-pont'
-  return 'badge-default'
+  if (l.includes('refrain') || l.includes('chorus'))
+    return { background: '#9C3D6E', color: '#fff' }
+  if (l.includes('pont') || l.includes('bridge'))
+    return { background: '#8A5A2B', color: '#fff' }
+  return { background: '#B87333', color: '#fff' }
+}
+
+const BADGE_BASE: React.CSSProperties = {
+  display: 'inline-block',
+  fontFamily: "'Cinzel', serif",
+  fontSize: 11,
+  letterSpacing: 2,
+  textTransform: 'uppercase',
+  padding: '3px 12px',
+  borderRadius: 4,
+  marginBottom: 8,
+}
+
+const SYL_BASE: React.CSSProperties = {
+  position: 'relative',
+  display: 'inline-block',
+  whiteSpace: 'pre',
+  color: '#3C2410',
+  fontFamily: "'Spectral', Georgia, serif",
+  fontWeight: 500,
+}
+
+const CRD_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  top: '-1.35em',
+  left: 0,
+  whiteSpace: 'nowrap',
+  fontFamily: "'JetBrains Mono', monospace",
+  fontSize: '0.76em',
+  fontWeight: 700,
+  color: '#9C3D6E',
 }
 
 export default function SongSheet({ song, initialTranspose = 0, printMode = false }: SongSheetProps) {
-  const [semitones, setSemitones]   = useState(initialTranspose)
-  const [notation, setNotation]     = useState<Notation>(song.notation ?? 'latin')
-  const [fontSize, setFontSize]     = useState(16)
+  const [semitones, setSemitones] = useState(initialTranspose)
+  const [notation, setNotation]   = useState<Notation>(song.notation ?? 'latin')
+  const [fontSize, setFontSize]   = useState(16)
   const bodyRef = useRef<HTMLDivElement>(null)
 
   const parsed    = parseSong(song.body)
   const displayed = transposeSong(parsed, semitones, notation)
 
-  // After each render: adjust paddingRight on every .syl so chords never overlap
+  // Widen each syllable span if its chord is wider
   useEffect(() => {
     if (!bodyRef.current) return
-    bodyRef.current.querySelectorAll<HTMLSpanElement>('.syl').forEach(syl => {
-      const crd = syl.querySelector<HTMLSpanElement>('.crd')
+    bodyRef.current.querySelectorAll<HTMLSpanElement>('[data-syl]').forEach(syl => {
+      const crd = syl.querySelector<HTMLSpanElement>('[data-crd]')
       if (!crd) return
-      syl.style.paddingRight = '0px'           // reset
+      syl.style.paddingRight = '0px'
       const need = crd.offsetWidth + 6
       const have = syl.offsetWidth
       if (need > have) syl.style.paddingRight = (need - have) + 'px'
     })
   })
 
+  // Two-column body — sections can flow across columns; individual lines cannot break
+  const bodyStyle: React.CSSProperties = {
+    fontSize,
+    columnCount: 2,
+    columnGap: '42px',
+    columnRuleWidth: 1,
+    columnRuleStyle: 'solid',
+    columnRuleColor: '#D9C49B',
+  }
+
+  // A lyric line (with or without chords) must not split across columns
+  const lyricLineStyle: React.CSSProperties = {
+    margin: '0 0 3px',
+    lineHeight: 2.55,
+    fontFamily: "'Spectral', Georgia, serif",
+    color: '#3C2410',
+    breakInside: 'avoid',
+  }
+
+  // Section wrapper: NO breakInside avoid — sections CAN split so content fills both columns
+  const sectionStyle: React.CSSProperties = {
+    marginBottom: 18,
+  }
+
+  // Label row (badge + following lines) should stay together
+  const labelBlockStyle: React.CSSProperties = {
+    breakInside: 'avoid',
+    display: 'inline-block',
+    width: '100%',
+  }
+
   return (
     <div>
-      <style>{`
-        .syl {
-          position: relative;
-          display: inline-block;
-          white-space: pre;
-          color: #3C2410;
-          font-family: 'Spectral', Georgia, serif;
-          font-weight: 500;
-        }
-        .syl .crd {
-          position: absolute;
-          top: -1.35em;
-          left: 0;
-          white-space: nowrap;
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 0.76em;
-          font-weight: 700;
-          color: #9C3D6E;
-        }
-        .lyric-line {
-          margin: 0 0 3px;
-          line-height: 2.55;
-          font-family: 'Spectral', Georgia, serif;
-          color: #3C2410;
-          white-space: pre-wrap;
-        }
-        .plain-text {
-          white-space: pre;
-          font-family: 'Spectral', Georgia, serif;
-          color: #3C2410;
-          font-weight: 500;
-        }
-        .badge-default { background: #B87333; color: #fff; }
-        .badge-refrain  { background: #9C3D6E; color: #fff; }
-        .badge-pont     { background: #8A5A2B; color: #fff; }
-        .section-badge {
-          display: inline-block;
-          font-family: 'Cinzel', serif;
-          font-size: 11px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          padding: 3px 12px;
-          border-radius: 4px;
-          margin-bottom: 8px;
-        }
-        .song-body {
-          column-count: 2;
-          column-gap: 42px;
-          column-rule: 1px solid #D9C49B;
-        }
-        @media (max-width: 620px) {
-          .song-body { column-count: 1; }
-        }
-        @media print {
-          .song-body { column-count: 2; }
-        }
-        .song-section {
-          break-inside: avoid;
-          margin-bottom: 18px;
-        }
-      `}</style>
-
-      {/* Controls (hidden in print mode) */}
+      {/* Controls */}
       {!printMode && (
         <div className="no-print flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#E2B36A]/20 border border-[#E2B36A]/50 rounded-xl">
           <div className="flex items-center gap-1">
             <span className="text-xs font-semibold text-[#5A3318] mr-1">Transposer</span>
-            <button onClick={() => setSemitones(s => s - 1)} className="w-7 h-7 rounded bg-[#B87333] text-white font-bold hover:bg-[#5A3318]">−</button>
+            <button onClick={() => setSemitones(s => s - 1)} className="w-7 h-7 rounded bg-[#B87333] text-white font-bold hover:bg-[#5A3318]">-</button>
             <span className="w-8 text-center text-sm font-mono text-[#5A3318]">{semitones > 0 ? `+${semitones}` : semitones}</span>
             <button onClick={() => setSemitones(s => s + 1)} className="w-7 h-7 rounded bg-[#B87333] text-white font-bold hover:bg-[#5A3318]">+</button>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-xs font-semibold text-[#5A3318] mr-1">Taille</span>
-            <button onClick={() => setFontSize(s => Math.max(10, s - 1))} className="w-7 h-7 rounded bg-[#7A4A20] text-white font-bold hover:bg-[#5A3318]">−</button>
+            <button onClick={() => setFontSize(s => Math.max(10, s - 1))} className="w-7 h-7 rounded bg-[#7A4A20] text-white font-bold hover:bg-[#5A3318]">-</button>
             <span className="w-8 text-center text-sm font-mono text-[#5A3318]">{fontSize}</span>
             <button onClick={() => setFontSize(s => Math.min(26, s + 1))} className="w-7 h-7 rounded bg-[#7A4A20] text-white font-bold hover:bg-[#5A3318]">+</button>
           </div>
@@ -123,63 +124,67 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
             onClick={() => setNotation(n => n === 'latin' ? 'anglo' : 'latin')}
             className="px-3 py-1 rounded border border-[#B87333] text-[#B87333] text-xs font-semibold hover:bg-[#B87333] hover:text-white transition-colors"
           >
-            {notation === 'latin' ? 'Do Ré Mi → C D E' : 'C D E → Do Ré Mi'}
+            {notation === 'latin' ? 'Do Re Mi -> C D E' : 'C D E -> Do Re Mi'}
           </button>
           {semitones !== 0 && (
             <button onClick={() => setSemitones(0)} className="text-xs text-[#9C3D6E] hover:underline">
-              Réinitialiser
+              Reinitialiser
             </button>
           )}
         </div>
       )}
 
-      {/* Song meta tags */}
-      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12.5px', color: '#7a6244' }}>
-        {song.key_signature && <span><b style={{ color: '#8A5A2B' }}>Tonalité&nbsp;:</b> {song.key_signature}{semitones !== 0 ? ` (${semitones > 0 ? '+' : ''}${semitones})` : ''}</span>}
-        {song.tempo         && <span><b style={{ color: '#8A5A2B' }}>Tempo&nbsp;:</b> {song.tempo} bpm</span>}
-        {song.time_signature && <span><b style={{ color: '#8A5A2B' }}>Mesure&nbsp;:</b> {song.time_signature}</span>}
-        {song.author        && <span><b style={{ color: '#8A5A2B' }}>Source&nbsp;:</b> {song.author}</span>}
+      {/* Meta */}
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, color: '#7a6244', display: 'flex', flexWrap: 'wrap', gap: '4px 20px', marginBottom: 4 }}>
+        {song.key_signature && <span><b style={{ color: '#8A5A2B' }}>Tonalite : </b>{song.key_signature}{semitones !== 0 ? ` (${semitones > 0 ? '+' : ''}${semitones})` : ''}</span>}
+        {song.tempo         && <span><b style={{ color: '#8A5A2B' }}>Tempo : </b>{song.tempo} bpm</span>}
+        {song.time_signature && <span><b style={{ color: '#8A5A2B' }}>Mesure : </b>{song.time_signature}</span>}
+        {song.author        && <span><b style={{ color: '#8A5A2B' }}>Source : </b>{song.author}</span>}
       </div>
       <div style={{ height: 1, background: 'linear-gradient(90deg,#B87333,transparent)', margin: '6px 0 18px' }} />
 
-      {/* Body — two columns, exact replica of the HTML canevas */}
-      <div className="song-body" style={{ fontSize: `${fontSize}px` }} ref={bodyRef}>
+      {/* Two-column body */}
+      <div ref={bodyRef} style={bodyStyle}>
         {displayed.sections.map((section, si) => (
-          <div key={si} className="song-section">
+          <div key={si} style={sectionStyle}>
+            {/* Badge + first few lines kept together */}
             {section.label && (
-              <span className={`section-badge ${sectionBadgeClass(section.label)}`}>
-                {section.label}
-              </span>
+              <div style={labelBlockStyle}>
+                <div style={{ breakInside: 'avoid' }}>
+                  <span style={{ ...BADGE_BASE, ...sectionBadge(section.label) }}>
+                    {section.label}
+                  </span>
+                </div>
+              </div>
             )}
             {section.lines.map((line, li) => {
               // Empty line
               if (!line.hasChords && line.tokens.every(t => !t.lyric.trim())) {
-                return <div key={li} className="lyric-line">&nbsp;</div>
+                return <div key={li} style={{ ...lyricLineStyle, lineHeight: 1 }}>&nbsp;</div>
               }
-              // Plain line (no chords)
+              // Plain line
               if (!line.hasChords) {
                 return (
-                  <div key={li} className="lyric-line">
-                    <span className="plain-text">{line.tokens.map(t => t.lyric).join('')}</span>
+                  <div key={li} style={lyricLineStyle}>
+                    <span style={{ whiteSpace: 'pre', fontFamily: "'Spectral', Georgia, serif", color: '#3C2410', fontWeight: 500 }}>
+                      {line.tokens.map(t => t.lyric).join('')}
+                    </span>
                   </div>
                 )
               }
-              // Line with chords — exact .syl / .crd technique from HTML
+              // Line with chords — each line is atomic (no column-break inside)
               return (
-                <div key={li} className="lyric-line">
+                <div key={li} style={lyricLineStyle}>
                   {line.tokens.map((token, ti) => {
                     if (!token.chord) {
-                      // Leading text before first chord
                       return token.lyric
-                        ? <span key={ti} className="plain-text">{token.lyric}</span>
+                        ? <span key={ti} style={{ whiteSpace: 'pre', fontFamily: "'Spectral', Georgia, serif", color: '#3C2410', fontWeight: 500 }}>{token.lyric}</span>
                         : null
                     }
-                    // Syllable with chord above
-                    const syllable = token.lyric === '' ? ' ' : token.lyric
                     return (
-                      <span key={ti} className="syl">
-                        <span className="crd">{token.chord}</span>
-                        {syllable}
+                      <span key={ti} data-syl style={SYL_BASE}>
+                        <span data-crd style={CRD_STYLE}>{token.chord}</span>
+                        {token.lyric === '' ? ' ' : token.lyric}
                       </span>
                     )
                   })}
@@ -192,7 +197,7 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
 
       {song.notes && (
         <div className="mt-4 p-3 border-l-2 border-[#E2B36A] bg-[#E2B36A]/10 rounded-r text-sm text-[#7A4A20] italic">
-          <strong className="not-italic font-semibold">Notes&nbsp;:</strong> {song.notes}
+          <strong className="not-italic font-semibold">Notes : </strong>{song.notes}
         </div>
       )}
     </div>

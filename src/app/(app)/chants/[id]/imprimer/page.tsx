@@ -16,51 +16,80 @@ export default async function PrintSongPage({ params, searchParams }: {
   const { data: song } = await supabase.from('songs').select('*').eq('id', id).single()
   if (!song) notFound()
 
+  // Letter = 8.5" × 11" = 816px × 1056px at 96dpi
+  // Usable area with 0.75" margins = 7" × 9.5" = 672px × 912px
   return (
-    <div className="print-page bg-white min-h-screen p-0">
+    <div style={{ background: '#e9ddc6', minHeight: '100vh', padding: '24px 14px 60px' }}>
       <PrintButton songId={id} transpose={initialTranspose} />
 
-      {/* Top padding for fixed buttons */}
-      <div className="no-print h-16" />
-
-      {/* Printable content */}
-      <div className="print-content p-8 max-w-[210mm] mx-auto">
+      {/* Letter-size sheet preview */}
+      <div
+        className="print-sheet"
+        style={{
+          maxWidth: 816,
+          margin: '48px auto 0',
+          background: '#FBF6EC',
+          border: '1px solid #e3d6bb',
+          borderRadius: 6,
+          boxShadow: '0 18px 50px rgba(60,36,16,.18)',
+          padding: '34px 40px 28px',
+          backgroundImage: 'radial-gradient(circle at 50% 0,#fffaf0,transparent 60%)',
+        }}
+      >
         {/* MEESL Header */}
-        <header className="text-center border-b-2 border-[#E2B36A] pb-4 mb-5">
-          <div className="flex justify-center mb-2">
-            <Image src="/logo-meesl.png" alt="MEESL" width={56} height={56} className="object-contain" />
-          </div>
-          <h1 className="font-cinzel text-lg font-bold text-[#5A3318] tracking-wide">
-            Mission Église Évangélique Sel et Lumière
-          </h1>
-          <p className="font-cormorant italic text-[#B87333] text-base">
-            Prêcher, instruire et desservir la communauté !
-          </p>
-          <div className="mt-1 inline-block px-3 py-0.5 bg-[#B87333]">
-            <span className="font-cinzel text-white text-xs tracking-widest">CHŒUR DE LOUANGE</span>
+        <header style={{ display: 'flex', alignItems: 'center', gap: 18, borderBottom: '2px solid #B87333', paddingBottom: 14, marginBottom: 16 }}>
+          <Image src="/logo-meesl.png" alt="MEESL" width={72} height={72} style={{ objectFit: 'contain', flexShrink: 0 }} />
+          <div>
+            <h1 style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 20, color: '#5A3318', margin: 0, letterSpacing: 0.5 }}>
+              Mission Église Évangélique Sel et Lumière
+            </h1>
+            <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 16, color: '#8A5A2B', margin: '3px 0 0' }}>
+              Prêcher, instruire et desservir la communauté !
+            </p>
+            <p style={{ fontFamily: "'Cinzel', serif", fontSize: 10, letterSpacing: 3, color: '#B87333', textTransform: 'uppercase', margin: '4px 0 0' }}>
+              Chœur de Louange
+            </p>
           </div>
         </header>
 
         {/* Song title */}
-        <h2 className="font-cinzel text-2xl font-bold text-[#5A3318] text-center mb-4">{song.title}</h2>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 28, color: '#5A3318', margin: '0 0 4px' }}>
+          {song.title}
+        </h2>
 
         {/* Song sheet - print mode (no controls) */}
         <SongSheet song={song} initialTranspose={initialTranspose} printMode={true} />
 
         {/* MEESL Footer */}
-        <footer className="border-t border-[#E2B36A]/50 pt-3 mt-6 text-center text-xs text-[#B87333]/80">
-          <p>4, Delmas 48 · Port-au-Prince, Haïti</p>
-          <p>meesl1410@gmail.com · (509) 37 97 1717 · (509) 33 16 6621</p>
+        <footer style={{ marginTop: 26, borderTop: '1.5px solid #B87333', paddingTop: 10, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '4px 16px', fontSize: 12, color: '#6f5736', fontFamily: "'Cormorant Garamond', serif" }}>
+          <span>📍 4, Delmas 48 · Port-au-Prince, Haïti</span>
+          <span>✉ meesl1410@gmail.com</span>
+          <span>☎ (509) 37 97 1717 · (509) 33 16 6621</span>
         </footer>
       </div>
 
       {/* eslint-disable-next-line react/no-danger */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: A4; margin: 12mm; }
+          @page {
+            size: letter;
+            margin: 0.75in;
+          }
+          body { background: white !important; padding: 0 !important; }
           .no-print { display: none !important; }
-          .print-content { padding: 0 !important; max-width: 100% !important; }
-          body { background: white; }
+          .print-sheet {
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            background: white !important;
+            background-image: none !important;
+          }
+        }
+        @media screen {
+          .print-sheet { min-height: 1056px; }
         }
       ` }} />
     </div>

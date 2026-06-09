@@ -116,6 +116,10 @@ function parseLine(raw: string): SongLine {
   return { tokens, hasChords };
 }
 
+// Regex: lines that look like section labels even without '#'
+// Matches: Verse 1, Chorus, Bridge, Couplet 2, Refrain, Pont, Intro, Outro, Coda, Pre-Chorus, Tag
+const SECTION_LABEL_RE = /^(verse|couplet|chorus|refrain|bridge|pont|intro|outro|coda|pre-?chorus|tag|strophe|interlude|verset)(\s+\d+)?$/i;
+
 export function parseSong(body: string): ParsedSong {
   const lines = body.split('\n');
   const sections: SongSection[] = [];
@@ -123,13 +127,16 @@ export function parseSong(body: string): ParsedSong {
 
   for (const raw of lines) {
     const trimmed = raw.trim();
-    if (trimmed.startsWith('#')) {
+    const isHashSection = trimmed.startsWith('#');
+    const isLabelSection = !isHashSection && SECTION_LABEL_RE.test(trimmed);
+
+    if (isHashSection || isLabelSection) {
       if (current.lines.length > 0 || current.label) {
         sections.push(current);
       }
-      current = { label: trimmed.replace(/^#+\s*/, ''), lines: [] };
+      const label = isHashSection ? trimmed.replace(/^#+\s*/, '') : trimmed;
+      current = { label, lines: [] };
     } else if (trimmed === '') {
-      // blank line → separator, kept as empty
       current.lines.push({ tokens: [{ chord: '', lyric: '' }], hasChords: false });
     } else {
       current.lines.push(parseLine(raw));

@@ -23,8 +23,8 @@ body {
 
 @media print {
   @page {
-    size: A4;
-    margin: 12mm;
+    size: letter;
+    margin: 0.75in;
   }
   .no-print { display: none !important; }
   body { background: white; }
