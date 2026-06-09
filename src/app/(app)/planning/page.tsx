@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import RehearsalManager from '@/components/RehearsalManager'
+import NotifyButton from '@/components/NotifyButton'
 import type { Profile, RehearsalChorister } from '@/lib/database.types'
 
 function formatDate(iso: string) {
@@ -119,6 +120,15 @@ export default async function PlanningPage() {
                       </li>
                     ))}
                   </ol>
+                </div>
+              )}
+
+              {isAdmin && rehearsalChoristers.length > 0 && (
+                <div className="mt-3">
+                  <NotifyButton
+                    rehearsalId={rehearsal.id}
+                    choristerCount={rehearsalChoristers.length}
+                  />
                 </div>
               )}
 

@@ -1,118 +1,153 @@
+/**
+ * POST /api/rehearsals/notify
+ *
+ * Sends email notifications to all choristers assigned to a rehearsal.
+ * - Admin-only (verified server-side via anon client + profiles.role).
+ * - Skips choristers already marked notified_email = true (idempotent).
+ * - Marks notified_email = true after each successful send.
+ * - Returns a detailed result per chorister for the UI.
+ *
+ * Future WhatsApp support: add `channel: 'whatsapp'` to request body.
+ */
+
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/lib/database.types'
+import { sendRehearsalEmail, type RehearsalNotificationData, type NotificationResult } from '@/lib/email'
 
-// Helper: verify caller is admin
-async function getCallerRole() {
+// ─── Auth helper ──────────────────────────────────────────────────────────────
+
+async function getAdminSupabase() {
   const cookieStore = await cookies()
-  const supabase = createServerClient<Database>(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
+}
+
+async function getCallerRole() {
+  const supabase = await getAdminSupabase()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) return { role: null, supabase }
   const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  return data?.role ?? null
+  return { role: data?.role ?? null, supabase }
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  }) + ' a ' + new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
-
-type ChoristerRow = { id: string; rehearsal_id: string; profile_id: string; vocal_role: string; notified_email: boolean }
-type ProfileRow = { id: string; full_name: string; email: string | null }
+// ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const role = await getCallerRole()
+  const { role, supabase } = await getCallerRole()
   if (role !== 'admin') {
-    return NextResponse.json({ error: 'Non autorise' }, { status: 403 })
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
-  const { rehearsal_id } = await request.json()
+  const body = await request.json().catch(() => ({}))
+  const { rehearsal_id } = body as { rehearsal_id?: string }
+
   if (!rehearsal_id) {
     return NextResponse.json({ error: 'rehearsal_id requis' }, { status: 400 })
   }
 
-  const cookieStore = await cookies()
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  )
-
-  const { data: rehearsal } = await supabase
+  // ── 1. Fetch rehearsal ───────────────────────────────────────────────────────
+  const { data: rehearsal, error: rehearsalErr } = await supabase
     .from('rehearsals')
     .select('id, title, starts_at, location, notes')
     .eq('id', rehearsal_id)
     .single()
 
-  if (!rehearsal) return NextResponse.json({ error: 'Repetition introuvable' }, { status: 404 })
+  if (rehearsalErr || !rehearsal) {
+    console.error('[NOTIFY] rehearsal not found', rehearsalErr)
+    return NextResponse.json({ error: 'Répétition introuvable' }, { status: 404 })
+  }
 
-  const { data: rawChoristers } = await supabase
+  // ── 2. Fetch songs for this rehearsal ────────────────────────────────────────
+  const { data: rawSongs } = await supabase
+    .from('rehearsal_songs')
+    .select('order_index, songs(id, title)')
+    .eq('rehearsal_id', rehearsal_id)
+    .order('order_index')
+
+  const songs = (rawSongs ?? []).map((rs: { order_index: number; songs: { id: string; title: string } | null }) => ({
+    title: rs.songs?.title ?? '?',
+    order_index: rs.order_index,
+  }))
+
+  // ── 3. Fetch assigned choristers ─────────────────────────────────────────────
+  const { data: rawChoristers, error: choristersErr } = await supabase
     .from('rehearsal_choristers')
     .select('id, rehearsal_id, profile_id, vocal_role, notified_email')
     .eq('rehearsal_id', rehearsal_id)
 
+  if (choristersErr) {
+    console.error('[NOTIFY] choristers fetch error', choristersErr)
+    return NextResponse.json({ error: choristersErr.message }, { status: 500 })
+  }
+
+  type ChoristerRow = { id: string; rehearsal_id: string; profile_id: string; vocal_role: string; notified_email: boolean }
   const choristers = (rawChoristers ?? []) as ChoristerRow[]
 
   if (!choristers.length) {
-    return NextResponse.json({ sent: 0, message: 'Aucun choriste selectionne' })
+    return NextResponse.json({ sent: 0, skipped: 0, failed: 0, total: 0, message: 'Aucun choriste assigné', results: [] })
   }
 
+  // ── 4. Fetch profiles (email addresses) ──────────────────────────────────────
   const profileIds = choristers.map(c => c.profile_id)
   const { data: rawProfiles } = await supabase
     .from('profiles')
     .select('id, full_name, email')
     .in('id', profileIds)
 
-  const profiles = (rawProfiles ?? []) as ProfileRow[]
-  const emailMap = new Map(profiles.map(p => [p.id, p]))
+  type ProfileRow = { id: string; full_name: string; email: string | null }
+  const profileMap = new Map(((rawProfiles ?? []) as ProfileRow[]).map(p => [p.id, p]))
 
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.EMAIL_FROM || 'Choeur de Louange MEESL <noreply@meesl.org>'
-  const dateStr = formatDate(rehearsal.starts_at)
-  const results: { id: string; ok: boolean; error?: string }[] = []
+  // ── 5. Send emails + mark notified ───────────────────────────────────────────
+  const results: NotificationResult[] = []
 
   for (const chorister of choristers) {
-    const profile = emailMap.get(chorister.profile_id)
-    if (!profile?.email) {
-      results.push({ id: chorister.profile_id, ok: false, error: 'Pas de courriel' })
+    const profile = profileMap.get(chorister.profile_id)
+
+    if (!profile) {
+      console.warn(`[NOTIFY] profile not found for profile_id=${chorister.profile_id}`)
+      results.push({ profile_id: chorister.profile_id, full_name: '?', ok: false, skipped: false, error: 'Profil introuvable', channel: 'email' })
       continue
     }
 
-    const subject = 'Nouvelle repetition - Choeur de Louange MEESL'
-    const body = `Bonjour ${profile.full_name},\n\nVous etes selectionne(e) pour servir avec le Choeur de Louange.\n\nDetails :\nDate et heure : ${dateStr}\nLieu : ${rehearsal.location ?? 'A confirmer'}\nRole : ${chorister.vocal_role}\nNotes : ${rehearsal.notes ?? '—'}\n\nMerci de confirmer votre disponibilite aupres du responsable du choeur.\n\nMission Eglise Evangelique Sel et Lumiere\nChoeur de Louange`
-
-    if (!apiKey) {
-      console.log(`[EMAIL SIMULE] To: ${profile.email}\nSubject: ${subject}\n${body}`)
-      results.push({ id: chorister.profile_id, ok: true })
-      continue
+    const data: RehearsalNotificationData = {
+      rehearsal: rehearsal as RehearsalNotificationData['rehearsal'],
+      chorister,
+      profile,
+      songs,
     }
 
-    try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to: [profile.email], subject, text: body }),
-      })
-      if (res.ok) {
-        await supabase
-          .from('rehearsal_choristers')
-          .update({ notified_email: true })
-          .eq('id', chorister.id)
-        results.push({ id: chorister.profile_id, ok: true })
-      } else {
-        const err = await res.json()
-        results.push({ id: chorister.profile_id, ok: false, error: JSON.stringify(err) })
+    const result = await sendRehearsalEmail(data)
+    results.push(result)
+
+    // Mark as notified only on fresh success (not skipped)
+    if (result.ok && !result.skipped) {
+      const { error: updateErr } = await supabase
+        .from('rehearsal_choristers')
+        .update({ notified_email: true })
+        .eq('id', chorister.id)
+
+      if (updateErr) {
+        console.error(`[NOTIFY] failed to mark notified for ${profile.full_name}`, updateErr)
       }
-    } catch (e) {
-      results.push({ id: chorister.profile_id, ok: false, error: String(e) })
     }
   }
 
-  return NextResponse.json({ sent: results.filter(r => r.ok).length, total: results.length, results })
+  const sent    = results.filter(r => r.ok && !r.skipped).length
+  const skipped = results.filter(r => r.skipped).length
+  const failed  = results.filter(r => !r.ok).length
+
+  console.info(`[NOTIFY] rehearsal=${rehearsal_id} sent=${sent} skipped=${skipped} failed=${failed}`)
+
+  return NextResponse.json({
+    sent,
+    skipped,
+    failed,
+    total: results.length,
+    results,
+  })
 }
