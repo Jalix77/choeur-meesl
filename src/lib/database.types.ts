@@ -93,6 +93,10 @@ export interface Database {
           label: string;
           kind: FileKind;
           storage_path: string;
+          file_name: string | null;
+          mime_type: string | null;
+          size_bytes: number | null;
+          uploaded_by: string | null;
           created_at: string;
         };
         Insert: {
@@ -101,12 +105,19 @@ export interface Database {
           label: string;
           kind: FileKind;
           storage_path: string;
+          file_name?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
+          uploaded_by?: string | null;
           created_at?: string;
         };
         Update: {
           label?: string;
           kind?: FileKind;
           storage_path?: string;
+          file_name?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
         };
         Relationships: [];
       };
@@ -229,6 +240,13 @@ export interface Database {
 export type Profile = Database['public']['Tables']['profiles']['Row'] & { phone?: string | null }
 export type Song = Database['public']['Tables']['songs']['Row']
 export type SongFile = Database['public']['Tables']['song_files']['Row']
+
+/** Which Supabase Storage bucket a SongFile lives in.
+ *  Legacy files uploaded before the audio migration used 'media'.
+ *  All new audio files use 'song-audios'. */
+export function songFileBucket(file: Pick<SongFile, 'storage_path'>): string {
+  return file.storage_path.startsWith('songs/') ? 'media' : 'song-audios'
+}
 export type Rehearsal = Database['public']['Tables']['rehearsals']['Row'] & {
   title?: string | null
   notify_selected?: boolean

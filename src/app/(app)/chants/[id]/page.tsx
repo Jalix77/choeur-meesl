@@ -4,6 +4,7 @@ import Link from 'next/link'
 import SongSheet from '@/components/SongSheet'
 import AudioList from '@/components/AudioList'
 import type { Profile, SongFile } from '@/lib/database.types'
+import { songFileBucket } from '@/lib/database.types'
 
 export default async function SongPage({ params, searchParams }: {
   params: Promise<{ id: string }>
@@ -28,10 +29,11 @@ export default async function SongPage({ params, searchParams }: {
     .eq('song_id', id)
     .order('created_at')
 
-  // Generate signed URLs for audio files
+  // Generate signed URLs — route to the correct bucket per file
   const filesWithUrls = await Promise.all(
     (songFiles ?? []).map(async (file: SongFile) => {
-      const { data } = await supabase.storage.from('media').createSignedUrl(file.storage_path, 3600)
+      const bucket = songFileBucket(file)
+      const { data } = await supabase.storage.from(bucket).createSignedUrl(file.storage_path, 3600)
       return { ...file, signedUrl: data?.signedUrl ?? '' }
     })
   )
@@ -43,6 +45,7 @@ export default async function SongPage({ params, searchParams }: {
         <div>
           <Link href="/chants" className="text-xs text-[#B87333] hover:underline">← Retour aux chants</Link>
           <h1 className="font-cinzel text-2xl font-bold text-[#5A3318] mt-1">{song.title}</h1>
+          {song.author && <p className="text-sm text-[#B87333]/70 mt-0.5">{song.author}</p>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <Link
@@ -68,7 +71,7 @@ export default async function SongPage({ params, searchParams }: {
       </div>
 
       {/* Audio files */}
-      <AudioList files={filesWithUrls} />
+      <AudioList files={filesWithUrls} canDelete={isAdmin} />
     </div>
   )
 }
