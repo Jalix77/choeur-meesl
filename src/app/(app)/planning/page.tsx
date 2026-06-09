@@ -38,10 +38,10 @@ export default async function PlanningPage() {
   // Songs for the form
   const { data: allSongs } = await supabase.from('songs').select('id, title').order('title')
 
-  // Active choristers for the form — gracefully handle missing phone column
+  // Active choristers for the form (phone needed for WhatsApp links)
   const { data: activeProfiles } = await supabase
     .from('profiles')
-    .select('id, full_name')
+    .select('id, full_name, phone')
     .eq('active', true)
     .order('full_name')
 
