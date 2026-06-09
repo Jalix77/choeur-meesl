@@ -18,6 +18,8 @@ export interface Database {
           full_name: string;
           role: Role;
           active: boolean;
+          phone: string | null;
+          email: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -26,6 +28,8 @@ export interface Database {
           full_name: string;
           role?: Role;
           active?: boolean;
+          phone?: string | null;
+          email?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -34,6 +38,8 @@ export interface Database {
           full_name?: string;
           role?: Role;
           active?: boolean;
+          phone?: string | null;
+          email?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -107,28 +113,62 @@ export interface Database {
       rehearsals: {
         Row: {
           id: string;
+          title: string | null;
           starts_at: string;
           ends_at: string | null;
           location: string | null;
           notes: string | null;
+          notify_selected: boolean;
+          created_by: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
+          title?: string | null;
           starts_at: string;
           ends_at?: string | null;
           location?: string | null;
           notes?: string | null;
+          notify_selected?: boolean;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
+          title?: string | null;
           starts_at?: string;
           ends_at?: string | null;
           location?: string | null;
           notes?: string | null;
+          notify_selected?: boolean;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      rehearsal_choristers: {
+        Row: {
+          id: string;
+          rehearsal_id: string;
+          profile_id: string;
+          vocal_role: string;
+          notified_email: boolean;
+          notified_whatsapp: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rehearsal_id: string;
+          profile_id: string;
+          vocal_role?: string;
+          notified_email?: boolean;
+          notified_whatsapp?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          vocal_role?: string;
+          notified_email?: boolean;
+          notified_whatsapp?: boolean;
         };
         Relationships: [];
       };
@@ -186,9 +226,27 @@ export interface Database {
 }
 
 // Convenience type aliases
-export type Profile = Database['public']['Tables']['profiles']['Row']
+export type Profile = Database['public']['Tables']['profiles']['Row'] & { phone?: string | null }
 export type Song = Database['public']['Tables']['songs']['Row']
 export type SongFile = Database['public']['Tables']['song_files']['Row']
-export type Rehearsal = Database['public']['Tables']['rehearsals']['Row']
+export type Rehearsal = Database['public']['Tables']['rehearsals']['Row'] & {
+  title?: string | null
+  notify_selected?: boolean
+  created_by?: string | null
+}
 export type RehearsalSong = Database['public']['Tables']['rehearsal_songs']['Row']
 export type Announcement = Database['public']['Tables']['announcements']['Row']
+
+export type RehearsalChorister = {
+  id: string
+  rehearsal_id: string
+  profile_id: string
+  vocal_role: string
+  notified_email: boolean
+  notified_whatsapp: boolean
+  created_at: string
+  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone'>
+}
+
+export type VocalRole = 'Soprano' | 'Alto' | 'Ténor' | 'Basse' | 'Lead' | 'Directeur' | 'Musicien' | 'Autre'
+export const VOCAL_ROLES: VocalRole[] = ['Soprano', 'Alto', 'Ténor', 'Basse', 'Lead', 'Directeur', 'Musicien', 'Autre']
