@@ -28,7 +28,7 @@ export default async function PlanningPage() {
   // Main rehearsals query — no date filter, show all
   const { data: rehearsals, error: rehearsalsError } = await supabase
     .from('rehearsals')
-    .select('*, rehearsal_songs(order_index, songs(id, title))')
+    .select('*, rehearsal_songs(*, songs(id, title))')
     .order('starts_at', { ascending: true })
 
   console.log('planning rehearsals', rehearsals)
