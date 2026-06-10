@@ -2,7 +2,6 @@ import { ImageResponse } from 'next/og'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { NextRequest } from 'next/server'
 
-export const runtime = 'edge'
 
 function getInitials(name: string) {
   return name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
