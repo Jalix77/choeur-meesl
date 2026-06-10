@@ -65,7 +65,7 @@ export async function PATCH(request: NextRequest) {
 
   const { error } = await supabase
     .from("profiles")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
