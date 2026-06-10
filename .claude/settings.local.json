@@ -8,7 +8,11 @@
       "PowerShell(Move-Item \"chords.ts\" \"src\\\\lib\\\\chords.ts\" -Force)",
       "PowerShell(Move-Item \"logo-meesl.png\" \"public\\\\logo-meesl.png\" -Force)",
       "Bash(mkdir -p src/app/\\\\\\(app\\\\\\)/chants/nouveau src/app/\\\\\\(app\\\\\\)/chants/\\\\[id\\\\]/modifier src/app/\\\\\\(app\\\\\\)/chants/\\\\[id\\\\]/imprimer src/app/\\\\\\(app\\\\\\)/planning src/app/\\\\\\(app\\\\\\)/annonces src/app/\\\\\\(app\\\\\\)/admin/membres src/app/api/admin/users src/components)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); gh --version 2>&1)",
+      "Bash(mkdir -p \"C:/Users/jajep/Choeur.meesl/src/app/api/anniversaires/card/[id]\")",
+      "Bash(mkdir -p \"C:/Users/jajep/Choeur.meesl/src/app/anniversaire/[id]\")",
+      "Bash(git add *)"
     ]
   }
 }

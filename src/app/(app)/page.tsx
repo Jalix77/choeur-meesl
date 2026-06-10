@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import type { Rehearsal, Announcement } from '@/lib/database.types'
+import type { Rehearsal, Announcement, Profile } from '@/lib/database.types'
+import {
+  isBirthdayToday, isBirthdayThisWeek, isBirthdayThisMonth,
+  formatBirthdayDisplay, daysUntilBirthday,
+} from '@/lib/database.types'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', {
@@ -15,21 +19,36 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const now = new Date().toISOString()
 
-  const { data: rehearsals } = await supabase
-    .from('rehearsals')
-    .select('*, rehearsal_songs(*, songs(title))')
-    .gte('starts_at', now)
-    .order('starts_at', { ascending: true })
-    .limit(1)
+  const [rehearsalsRes, announcementsRes, profilesRes] = await Promise.all([
+    supabase
+      .from('rehearsals')
+      .select('*, rehearsal_songs(*, songs(title))')
+      .gte('starts_at', now)
+      .order('starts_at', { ascending: true })
+      .limit(1),
+    supabase
+      .from('announcements')
+      .select('*')
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(3),
+    supabase
+      .from('profiles')
+      .select('id, full_name, date_naissance')
+      .eq('active', true)
+      .not('date_naissance', 'is', null),
+  ])
 
-  const { data: announcements } = await supabase
-    .from('announcements')
-    .select('*')
-    .order('pinned', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(3)
+  const nextRehearsal = rehearsalsRes.data?.[0] as (Rehearsal & { rehearsal_songs: { songs: { title: string } }[] }) | undefined
+  const announcements = announcementsRes.data
+  const allProfiles   = (profilesRes.data ?? []) as Pick<Profile, 'id' | 'full_name' | 'date_naissance'>[]
 
-  const nextRehearsal = rehearsals?.[0] as (Rehearsal & { rehearsal_songs: { songs: { title: string } }[] }) | undefined
+  const todayBirthdays   = allProfiles.filter(p => p.date_naissance && isBirthdayToday(p.date_naissance))
+  const weekBirthdays    = allProfiles.filter(p => p.date_naissance && isBirthdayThisWeek(p.date_naissance) && !isBirthdayToday(p.date_naissance))
+  const monthBirthdays   = allProfiles.filter(p => p.date_naissance && isBirthdayThisMonth(p.date_naissance))
+
+  // Sort week by days until
+  weekBirthdays.sort((a, b) => daysUntilBirthday(a.date_naissance!) - daysUntilBirthday(b.date_naissance!))
 
   return (
     <div className="space-y-8">
@@ -97,14 +116,105 @@ export default async function DashboardPage() {
             Toutes les annonces →
           </Link>
         </div>
+
+        {/* 🎂 Widget anniversaires */}
+        <div className="md:col-span-2 bg-gradient-to-br from-[#FBF6EC] to-white border border-[#E2B36A]/50 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-cinzel text-[#5A3318] font-bold text-lg flex items-center gap-2">
+              🎂 Anniversaires
+            </h2>
+            <Link href="/anniversaires" className="text-xs text-[#B87333] hover:underline">
+              Voir tous →
+            </Link>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-4">
+            {/* Aujourd'hui */}
+            <div className="bg-white border border-[#E2B36A]/40 rounded-xl p-4">
+              <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide mb-2">Aujourd&apos;hui</p>
+              {todayBirthdays.length > 0 ? (
+                <ul className="space-y-2">
+                  {todayBirthdays.map(p => (
+                    <li key={p.id} className="flex items-center gap-2">
+                      <span className="w-8 h-8 rounded-full bg-[#B87333]/20 flex items-center justify-center text-xs font-bold text-[#5A3318] flex-shrink-0">
+                        {p.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-[#5A3318] leading-tight">{p.full_name}</p>
+                        <Link href={`/anniversaires`} className="text-xs text-[#B87333] hover:underline">Voir carte</Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-[#B87333]/50 italic">Aucun anniversaire</p>
+              )}
+            </div>
+
+            {/* Cette semaine */}
+            <div className="bg-white border border-[#E2B36A]/40 rounded-xl p-4">
+              <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide mb-2">Cette semaine</p>
+              {weekBirthdays.length > 0 ? (
+                <ul className="space-y-2">
+                  {weekBirthdays.slice(0, 3).map(p => (
+                    <li key={p.id} className="flex items-center gap-2">
+                      <span className="w-8 h-8 rounded-full bg-[#E2B36A]/30 flex items-center justify-center text-xs font-bold text-[#5A3318] flex-shrink-0">
+                        {p.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-[#5A3318] leading-tight">{p.full_name}</p>
+                        <p className="text-xs text-[#B87333]/70">
+                          dans {daysUntilBirthday(p.date_naissance!)} jour{daysUntilBirthday(p.date_naissance!) > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                  {weekBirthdays.length > 3 && (
+                    <li className="text-xs text-[#B87333]/60 italic">+{weekBirthdays.length - 3} autres</li>
+                  )}
+                </ul>
+              ) : (
+                <p className="text-sm text-[#B87333]/50 italic">Aucun cette semaine</p>
+              )}
+            </div>
+
+            {/* Ce mois */}
+            <div className="bg-white border border-[#E2B36A]/40 rounded-xl p-4">
+              <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide mb-2">Ce mois-ci</p>
+              <div className="flex items-center gap-3">
+                <span className="text-4xl font-cinzel font-bold text-[#B87333]">{monthBirthdays.length}</span>
+                <div>
+                  <p className="text-sm text-[#5A3318]">anniversaire{monthBirthdays.length !== 1 ? 's' : ''}</p>
+                  <Link href="/anniversaires" className="text-xs text-[#B87333] hover:underline">
+                    Voir la liste →
+                  </Link>
+                </div>
+              </div>
+              {monthBirthdays.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {monthBirthdays.slice(0, 5).map(p => (
+                    <span key={p.id}
+                      className="bg-[#E2B36A]/20 text-[#5A3318] text-xs px-2 py-0.5 rounded-full">
+                      {p.full_name.split(' ')[0]}
+                    </span>
+                  ))}
+                  {monthBirthdays.length > 5 && (
+                    <span className="text-xs text-[#B87333]/60">+{monthBirthdays.length - 5}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { href: '/chants', label: 'Chants', icon: '🎶' },
-          { href: '/planning', label: 'Planning', icon: '📅' },
-          { href: '/annonces', label: 'Annonces', icon: '📢' },
+          { href: '/chants',       label: 'Chants',       icon: '🎶' },
+          { href: '/planning',     label: 'Planning',     icon: '📅' },
+          { href: '/annonces',     label: 'Annonces',     icon: '📢' },
+          { href: '/anniversaires', label: 'Anniversaires', icon: '🎂' },
         ].map(item => (
           <Link
             key={item.href}
@@ -112,7 +222,7 @@ export default async function DashboardPage() {
             className="flex items-center gap-2 bg-[#B87333]/10 hover:bg-[#B87333]/20 border border-[#B87333]/30 rounded-xl p-4 transition-colors"
           >
             <span className="text-2xl">{item.icon}</span>
-            <span className="font-cinzel text-[#5A3318] font-semibold">{item.label}</span>
+            <span className="font-cinzel text-[#5A3318] font-semibold text-sm">{item.label}</span>
           </Link>
         ))}
       </div>

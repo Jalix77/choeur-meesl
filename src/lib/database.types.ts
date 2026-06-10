@@ -20,6 +20,7 @@ export interface Database {
           active: boolean;
           phone: string | null;
           email: string | null;
+          date_naissance: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -30,6 +31,7 @@ export interface Database {
           active?: boolean;
           phone?: string | null;
           email?: string | null;
+          date_naissance?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -40,7 +42,37 @@ export interface Database {
           active?: boolean;
           phone?: string | null;
           email?: string | null;
+          date_naissance?: string | null;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      birthday_notifications: {
+        Row: {
+          id: string;
+          profile_id: string;
+          year: number;
+          card_generated: boolean;
+          email_sent: boolean;
+          whatsapp_shared: boolean;
+          notified_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          year?: number;
+          card_generated?: boolean;
+          email_sent?: boolean;
+          whatsapp_shared?: boolean;
+          notified_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          card_generated?: boolean;
+          email_sent?: boolean;
+          whatsapp_shared?: boolean;
+          notified_at?: string | null;
         };
         Relationships: [];
       };
@@ -237,7 +269,8 @@ export interface Database {
 }
 
 // Convenience type aliases
-export type Profile = Database['public']['Tables']['profiles']['Row'] & { phone?: string | null }
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type BirthdayNotification = Database['public']['Tables']['birthday_notifications']['Row']
 export type Song = Database['public']['Tables']['songs']['Row']
 export type SongFile = Database['public']['Tables']['song_files']['Row']
 
@@ -268,3 +301,45 @@ export type RehearsalChorister = {
 
 export type VocalRole = 'Soprano' | 'Alto' | 'Ténor' | 'Basse' | 'Lead' | 'Directeur' | 'Musicien' | 'Autre'
 export const VOCAL_ROLES: VocalRole[] = ['Soprano', 'Alto', 'Ténor', 'Basse', 'Lead', 'Directeur', 'Musicien', 'Autre']
+
+// ── Birthday helpers ──────────────────────────────────────────────────────────
+
+/** Returns a Date for this year's birthday (ignores year in the stored date). */
+export function birthdayThisYear(dateNaissance: string): Date {
+  const [, m, d] = dateNaissance.split('-')
+  return new Date(new Date().getFullYear(), parseInt(m) - 1, parseInt(d))
+}
+
+/** Number of days until the next birthday (0 = today). */
+export function daysUntilBirthday(dateNaissance: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  let bday = birthdayThisYear(dateNaissance)
+  if (bday < today) bday = new Date(today.getFullYear() + 1, bday.getMonth(), bday.getDate())
+  return Math.round((bday.getTime() - today.getTime()) / 86_400_000)
+}
+
+export function isBirthdayToday(dateNaissance: string): boolean {
+  return daysUntilBirthday(dateNaissance) === 0
+}
+
+export function isBirthdayThisWeek(dateNaissance: string): boolean {
+  const d = daysUntilBirthday(dateNaissance)
+  return d >= 0 && d <= 7
+}
+
+export function isBirthdayThisMonth(dateNaissance: string): boolean {
+  const today = new Date()
+  const [, m] = dateNaissance.split('-')
+  return today.getMonth() + 1 === parseInt(m)
+}
+
+/** "15 janvier" — no year displayed */
+export function formatBirthdayDisplay(dateNaissance: string): string {
+  const [, m, d] = dateNaissance.split('-')
+  return new Date(2000, parseInt(m) - 1, parseInt(d)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+}
+
+/** Age this year */
+export function ageThisYear(dateNaissance: string): number {
+  return new Date().getFullYear() - parseInt(dateNaissance.split('-')[0])
+}

@@ -28,6 +28,7 @@ export default function NavBar({ profile }: NavBarProps) {
     { href: '/chants', label: 'Chants' },
     { href: '/planning', label: 'Planning' },
     { href: '/annonces', label: 'Annonces' },
+    { href: '/anniversaires', label: '🎂 Anniversaires' },
     ...(isAdmin ? [{ href: '/admin/membres', label: 'Membres' }] : []),
   ]
 
