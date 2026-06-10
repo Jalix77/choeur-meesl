@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type Role = 'admin' | 'member';
+export type Role = 'admin' | 'leader' | 'member';
 export type FileKind = 'audio' | 'playback' | 'sheet';
 
 export interface Database {

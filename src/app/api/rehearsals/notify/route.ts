@@ -39,7 +39,7 @@ async function getCallerRole() {
 
 export async function POST(request: NextRequest) {
   const { role, supabase } = await getCallerRole()
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'leader') {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

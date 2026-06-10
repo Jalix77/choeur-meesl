@@ -6,6 +6,7 @@ import AudioList from '@/components/AudioList'
 import FileManager from '@/components/FileManager'
 import type { Profile, SongFile } from '@/lib/database.types'
 import { songFileBucket } from '@/lib/database.types'
+import { canManageContent } from '@/lib/roles'
 
 export default async function SongPage({ params, searchParams }: {
   params: Promise<{ id: string }>
@@ -22,7 +23,7 @@ export default async function SongPage({ params, searchParams }: {
 
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
-  const isAdmin = (profile as Pick<Profile, 'role'> | null)?.role === 'admin'
+  const isAdmin = canManageContent((profile as Pick<Profile, 'role'> | null)?.role)
 
   const { data: songFiles } = await supabase
     .from('song_files')

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/database.types'
+import { canManageContent, isAdmin as checkIsAdmin, ROLE_LABELS } from '@/lib/roles'
 
 interface NavBarProps {
   profile: Profile | null
@@ -21,7 +22,9 @@ export default function NavBar({ profile }: NavBarProps) {
     router.refresh()
   }
 
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin    = checkIsAdmin(profile?.role)
+  const canManage  = canManageContent(profile?.role)
+  const roleLabel  = profile?.role ? ROLE_LABELS[profile.role] : ''
 
   const links = [
     { href: '/', label: 'Tableau de bord' },
@@ -29,7 +32,7 @@ export default function NavBar({ profile }: NavBarProps) {
     { href: '/planning', label: 'Planning' },
     { href: '/annonces', label: 'Annonces' },
     { href: '/anniversaires', label: '🎂 Anniversaires' },
-    ...(isAdmin ? [{ href: '/admin/membres', label: 'Membres' }] : []),
+    ...(canManage ? [{ href: '/admin/membres', label: 'Membres' }] : []),
   ]
 
   return (
@@ -65,7 +68,7 @@ export default function NavBar({ profile }: NavBarProps) {
           <div className="flex items-center gap-2">
             <span className="text-[#E2B36A] text-xs hidden md:block">
               {profile?.full_name}
-              {isAdmin && <span className="ml-1 text-[#B87333]">(admin)</span>}
+              {roleLabel && <span className="ml-1 text-[#B87333]">({roleLabel})</span>}
             </span>
             <button
               onClick={handleSignOut}

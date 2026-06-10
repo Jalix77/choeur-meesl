@@ -12,7 +12,8 @@
       "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); gh --version 2>&1)",
       "Bash(mkdir -p \"C:/Users/jajep/Choeur.meesl/src/app/api/anniversaires/card/[id]\")",
       "Bash(mkdir -p \"C:/Users/jajep/Choeur.meesl/src/app/anniversaire/[id]\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git push *)"
     ]
   }
 }

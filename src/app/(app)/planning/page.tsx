@@ -3,6 +3,7 @@ import Link from 'next/link'
 import RehearsalManager from '@/components/RehearsalManager'
 import NotifyButton from '@/components/NotifyButton'
 import type { Profile, RehearsalChorister } from '@/lib/database.types'
+import { canManageContent } from '@/lib/roles'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -24,7 +25,7 @@ export default async function PlanningPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
-  const isAdmin = (profile as Pick<Profile, 'role'> | null)?.role === 'admin'
+  const isAdmin = canManageContent((profile as Pick<Profile, 'role'> | null)?.role)
 
   // Main rehearsals query — no date filter, show all
   const { data: rehearsals, error: rehearsalsError } = await supabase

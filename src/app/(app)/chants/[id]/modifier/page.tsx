@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import SongForm from '@/components/SongForm'
 import FileManager from '@/components/FileManager'
 import type { Profile, SongFile } from '@/lib/database.types'
+import { canManageContent } from '@/lib/roles'
 
 export default async function EditSongPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -10,7 +11,7 @@ export default async function EditSongPage({ params }: { params: Promise<{ id: s
 
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
-  if ((profile as Pick<Profile, 'role'> | null)?.role !== 'admin') redirect('/')
+  if (!canManageContent((profile as Pick<Profile, 'role'> | null)?.role)) redirect('/')
 
   const { data: song } = await supabase.from('songs').select('*').eq('id', id).single()
   if (!song) notFound()

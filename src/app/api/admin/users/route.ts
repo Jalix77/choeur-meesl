@@ -1,8 +1,11 @@
-﻿import { createServerClient } from "@supabase/ssr"
+import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+
+// Fields a leader is allowed to update on any profile
+const LEADER_ALLOWED_FIELDS = new Set(['phone', 'date_naissance'])
 
 async function getCallerProfile(request: NextRequest) {
   const cookieStore = await cookies()
@@ -19,13 +22,14 @@ async function getCallerProfile(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  return profile
+  return profile as { role: 'admin' | 'leader' | 'member' } | null
 }
 
+// POST — create user — admin only
 export async function POST(request: NextRequest) {
-  const profile = await getCallerProfile(request)
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Non autorise" }, { status: 403 })
+  const caller = await getCallerProfile(request)
+  if (caller?.role !== "admin") {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
   }
 
   const { email, password, full_name, role } = await request.json()
@@ -42,14 +46,30 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ user: data.user })
 }
 
+// PATCH — update profile fields
+// admin: can update any field (role, active, phone, date_naissance, full_name, etc.)
+// leader: can only update phone and date_naissance
 export async function PATCH(request: NextRequest) {
-  const profile = await getCallerProfile(request)
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Non autorise" }, { status: 403 })
+  const caller = await getCallerProfile(request)
+  if (!caller || (caller.role !== "admin" && caller.role !== "leader")) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
   }
 
   const body = await request.json()
-  const { id, ...updates } = body
+  const { id, ...rawUpdates } = body
+
+  // Leaders: strip fields they are not allowed to touch
+  let updates: Record<string, unknown>
+  if (caller.role === "leader") {
+    updates = Object.fromEntries(
+      Object.entries(rawUpdates).filter(([k]) => LEADER_ALLOWED_FIELDS.has(k))
+    )
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "Aucun champ autorisé." }, { status: 403 })
+    }
+  } else {
+    updates = rawUpdates
+  }
 
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -72,10 +92,11 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
+// DELETE — admin only
 export async function DELETE(request: NextRequest) {
-  const profile = await getCallerProfile(request)
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Non autorise" }, { status: 403 })
+  const caller = await getCallerProfile(request)
+  if (caller?.role !== "admin") {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
   }
 
   const { id } = await request.json()

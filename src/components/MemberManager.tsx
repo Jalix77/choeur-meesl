@@ -2,18 +2,21 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Profile } from '@/lib/database.types'
+import type { Profile, Role } from '@/lib/database.types'
 import { formatBirthdayDisplay } from '@/lib/database.types'
+import { ROLE_OPTIONS, ROLE_LABELS } from '@/lib/roles'
 
 interface Props {
   profiles: Profile[]
   currentUserId: string
+  callerRole: Role
 }
 
 const BLANK_CREATE = { email: '', password: '', full_name: '', role: 'member' as 'admin' | 'member', phone: '', date_naissance: '' }
 const BLANK_EDIT   = { full_name: '', phone: '', date_naissance: '' }
 
-export default function MemberManager({ profiles: initialProfiles, currentUserId }: Props) {
+export default function MemberManager({ profiles: initialProfiles, currentUserId, callerRole }: Props) {
+  const isCallerAdmin = callerRole === 'admin'
   const router = useRouter()
   const [profiles, setProfiles] = useState(initialProfiles)
   const [showAdd, setShowAdd]   = useState(false)
@@ -66,7 +69,7 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
     setProfiles(p => p.map(x => x.id === id ? { ...x, active: !active } : x))
   }
 
-  async function handleRoleChange(id: string, role: 'admin' | 'member') {
+  async function handleRoleChange(id: string, role: Role) {
     await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -125,11 +128,13 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
             <h3 className="font-cinzel font-bold text-[#5A3318] mb-4">Modifier le profil</h3>
             <form onSubmit={handleEdit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-[#5A3318] mb-1">Nom complet *</label>
-                <input className={inputCls} required value={editForm.full_name}
-                  onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} />
-              </div>
+              {isCallerAdmin && (
+                <div>
+                  <label className="block text-xs font-semibold text-[#5A3318] mb-1">Nom complet *</label>
+                  <input className={inputCls} required value={editForm.full_name}
+                    onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} />
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-semibold text-[#5A3318] mb-1">Téléphone</label>
                 <input className={inputCls} type="tel" value={editForm.phone} placeholder="+509 xxxx xxxx"
@@ -156,8 +161,8 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
         </div>
       )}
 
-      {/* Add button / form */}
-      {!showAdd ? (
+      {/* Add button / form — admin only */}
+      {isCallerAdmin && (!showAdd ? (
         <button onClick={() => setShowAdd(true)}
           className="bg-[#B87333] hover:bg-[#5A3318] text-white font-cinzel text-sm px-4 py-2 rounded-lg transition-colors">
           + Ajouter un membre
@@ -182,8 +187,9 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
               <div>
                 <label className="block text-xs font-semibold text-[#5A3318] mb-1">Rôle</label>
                 <select className={inputCls} value={form.role} onChange={e => setField('role', e.target.value)}>
-                  <option value="member">Membre</option>
-                  <option value="admin">Admin</option>
+                  {ROLE_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -208,7 +214,7 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
             </div>
           </form>
         </div>
-      )}
+      ))}
 
       {/* Members table */}
       <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl overflow-x-auto shadow-sm">
@@ -240,17 +246,18 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  {p.id !== currentUserId ? (
+                  {isCallerAdmin && p.id !== currentUserId ? (
                     <select
                       value={p.role}
-                      onChange={e => handleRoleChange(p.id, e.target.value as 'admin' | 'member')}
+                      onChange={e => handleRoleChange(p.id, e.target.value as Role)}
                       className="border border-[#E2B36A]/50 rounded px-2 py-1 text-xs bg-[#FBF6EC] text-[#5A3318]"
                     >
-                      <option value="member">Membre</option>
-                      <option value="admin">Admin</option>
+                      {ROLE_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
                     </select>
                   ) : (
-                    <span className="text-xs text-[#B87333] font-semibold uppercase">{p.role}</span>
+                    <span className="text-xs text-[#B87333] font-semibold">{ROLE_LABELS[p.role]}</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -266,7 +273,8 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                     >
                       ✏️
                     </button>
-                    {p.id !== currentUserId && (
+                    {/* Admin-only: activate/deactivate + delete */}
+                    {isCallerAdmin && p.id !== currentUserId && (
                       <>
                         <button
                           onClick={() => handleToggleActive(p.id, p.active)}

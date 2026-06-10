@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Profile, Announcement } from '@/lib/database.types'
 import AnnouncementManager from '@/components/AnnouncementManager'
+import { canManageContent } from '@/lib/roles'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -10,7 +11,7 @@ export default async function AnnouncesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
-  const isAdmin = (profile as Pick<Profile, 'role'> | null)?.role === 'admin'
+  const isAdmin = canManageContent((profile as Pick<Profile, 'role'> | null)?.role)
 
   const { data: announcements } = await supabase
     .from('announcements')
