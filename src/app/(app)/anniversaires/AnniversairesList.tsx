@@ -5,7 +5,7 @@ import type { Profile } from '@/lib/database.types'
 import { formatBirthdayDisplay, daysUntilBirthday } from '@/lib/database.types'
 import BirthdayCard from '@/components/BirthdayCard'
 
-type Member = Pick<Profile, 'id' | 'full_name' | 'date_naissance' | 'photo_url'>
+type Member = Pick<Profile, 'id' | 'full_name' | 'date_naissance' | 'avatar_url'>
 
 interface Props {
   todayList:  Member[]
@@ -67,9 +67,9 @@ function MemberCard({ member, highlight = false }: { member: Member; highlight?:
           <div className={`w-12 h-12 rounded-full flex-shrink-0 overflow-hidden border-2 ${
             highlight ? 'border-[#B87333]' : 'border-[#E2B36A]/40'
           }`}>
-            {member.photo_url ? (
+            {member.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={member.photo_url} alt="" className="w-full h-full object-cover" />
+              <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className={`w-full h-full flex items-center justify-center text-sm font-bold ${
                 highlight ? 'bg-[#B87333] text-white' : 'bg-[#E2B36A]/30 text-[#5A3318]'

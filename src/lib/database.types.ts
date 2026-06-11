@@ -21,7 +21,7 @@ export interface Database {
           phone: string | null;
           email: string | null;
           date_naissance: string | null;
-          photo_url: string | null;
+          avatar_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -33,7 +33,7 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           date_naissance?: string | null;
-          photo_url?: string | null;
+          avatar_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -45,7 +45,7 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           date_naissance?: string | null;
-          photo_url?: string | null;
+          avatar_url?: string | null;
           updated_at?: string;
         };
         Relationships: [];

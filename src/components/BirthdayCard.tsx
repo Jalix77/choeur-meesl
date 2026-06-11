@@ -7,7 +7,7 @@ import { formatBirthdayDisplay } from '@/lib/database.types'
 export type CardTemplate = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 interface Props {
-  profile: Pick<Profile, 'id' | 'full_name' | 'date_naissance' | 'photo_url'>
+  profile: Pick<Profile, 'id' | 'full_name' | 'date_naissance' | 'avatar_url'>
   onClose?: () => void
   initialTemplate?: CardTemplate
 }
@@ -750,7 +750,7 @@ export default function BirthdayCard({ profile, onClose, initialTemplate = 1 }: 
                 transformOrigin: 'top left',
               }}>
                 <CardRenderer template={template} name={name} date={date}
-                  photoUrl={profile.photo_url} size={CARD_SIZE} />
+                  photoUrl={profile.avatar_url} size={CARD_SIZE} />
               </div>
             </div>
           </div>
@@ -759,7 +759,7 @@ export default function BirthdayCard({ profile, onClose, initialTemplate = 1 }: 
           <div style={{ position: 'fixed', left: '-9999px', top: 0, pointerEvents: 'none' }}>
             <div ref={captureRef} style={{ width: CARD_SIZE, height: CARD_SIZE }}>
               <CardRenderer template={template} name={name} date={date}
-                photoUrl={profile.photo_url} size={CARD_SIZE} />
+                photoUrl={profile.avatar_url} size={CARD_SIZE} />
             </div>
           </div>
 

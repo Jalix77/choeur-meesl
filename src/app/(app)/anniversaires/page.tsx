@@ -13,12 +13,12 @@ export default async function AnniversairesPage() {
 
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, full_name, date_naissance, photo_url')
+    .select('id, full_name, date_naissance, avatar_url')
     .eq('active', true)
     .not('date_naissance', 'is', null)
     .order('full_name')
 
-  const withBirthday = (profiles ?? []) as Pick<Profile, 'id' | 'full_name' | 'date_naissance' | 'photo_url'>[]
+  const withBirthday = (profiles ?? []) as Pick<Profile, 'id' | 'full_name' | 'date_naissance' | 'avatar_url'>[]
 
   const todayList  = withBirthday.filter(p => isBirthdayToday(p.date_naissance!))
   const weekList   = withBirthday.filter(p => isBirthdayThisWeek(p.date_naissance!) && !isBirthdayToday(p.date_naissance!))

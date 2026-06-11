@@ -30,7 +30,7 @@ export default async function PublicCardPage({
   const admin = createAdminClient()
   const { data: profile } = await admin
     .from('profiles')
-    .select('id, full_name, date_naissance, photo_url')
+    .select('id, full_name, date_naissance, avatar_url')
     .eq('id', id)
     .single()
 

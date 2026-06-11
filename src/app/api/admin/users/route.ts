@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 // Fields a leader is allowed to update on any profile
-const LEADER_ALLOWED_FIELDS = new Set(['phone', 'date_naissance', 'photo_url'])
+const LEADER_ALLOWED_FIELDS = new Set(['phone', 'date_naissance', 'avatar_url'])
 
 async function getCallerProfile(request: NextRequest) {
   const cookieStore = await cookies()
