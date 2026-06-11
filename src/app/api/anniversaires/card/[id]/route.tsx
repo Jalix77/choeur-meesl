@@ -13,9 +13,6 @@ function formatDate(iso: string): string {
   return `${parseInt(d)} ${months[parseInt(m) - 1]}`
 }
 
-function ageThisYear(iso: string): number {
-  return new Date().getFullYear() - parseInt(iso.split('-')[0])
-}
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +30,6 @@ export async function GET(
 
   const name = profile?.full_name ?? 'Membre'
   const date = profile?.date_naissance ? formatDate(profile.date_naissance) : ''
-  const age  = profile?.date_naissance ? ageThisYear(profile.date_naissance) : 0
   const initials = getInitials(name)
 
   const W = 800
@@ -69,7 +65,7 @@ export async function GET(
           Joyeux Anniversaire
         </div>
         <div style={{ color: '#F5E6C8', fontSize: 42, fontWeight: 'bold', marginBottom: 8 }}>{name}</div>
-        <div style={{ color: '#E2B36A', fontSize: 18, marginBottom: 24 }}>🎂 {date}{age > 0 ? ` · ${age} ans` : ''}</div>
+        <div style={{ color: '#E2B36A', fontSize: 18, marginBottom: 24 }}>🎂 {date}</div>
         <div style={{ color: '#E2B36A', opacity: 0.85, fontSize: 16, textAlign: 'center', lineHeight: 1.6, maxWidth: 480 }}>
           Que Dieu vous accorde grâce, santé, paix et succès{'\n'}durant cette nouvelle année de vie.
         </div>
@@ -109,7 +105,7 @@ export async function GET(
         </div>
         <div style={{ color: '#5A3318', fontSize: 46, fontWeight: 'bold', marginBottom: 8 }}>{name}</div>
         <div style={{ width: 80, height: 2, background: 'linear-gradient(90deg, transparent, #C9A227, transparent)', marginBottom: 16 }} />
-        <div style={{ color: '#B87333', fontSize: 18, marginBottom: 20 }}>🎂 {date}{age > 0 ? ` · ${age} ans` : ''}</div>
+        <div style={{ color: '#B87333', fontSize: 18, marginBottom: 20 }}>🎂 {date}</div>
         <div style={{ color: '#7A4A20', fontSize: 16, textAlign: 'center', lineHeight: 1.6, maxWidth: 480 }}>
           Que Dieu vous bénisse abondamment et vous accorde{'\n'}une nouvelle année remplie de grâce, de paix et de succès.
         </div>
@@ -147,7 +143,7 @@ export async function GET(
         </div>
         <div style={{ color: '#FFFFFF', fontSize: 42, fontWeight: 'bold', marginBottom: 8 }}>{name}</div>
         <div style={{ color: '#E2B36A', fontSize: 22, marginBottom: 16, letterSpacing: '0.2em' }}>♩ ♪ ♫ ♬ ♫ ♪ ♩</div>
-        <div style={{ color: '#E2B36A', fontSize: 18, marginBottom: 20 }}>{date}{age > 0 ? ` · ${age} ans` : ''}</div>
+        <div style={{ color: '#E2B36A', fontSize: 18, marginBottom: 20 }}>{date}</div>
         <div style={{ color: '#E2B36A', opacity: 0.75, fontSize: 16, textAlign: 'center', lineHeight: 1.6, maxWidth: 480 }}>
           Que votre vie soit une symphonie de bénédictions{'\n'}et que Dieu vous comble de sa grâce.
         </div>
@@ -180,7 +176,7 @@ export async function GET(
       </div>
       <div style={{ color: '#FFFFFF', fontSize: 42, fontWeight: 'bold', marginBottom: 8 }}>{name}</div>
       <div style={{ width: 80, height: 1, background: '#F5C84255', marginBottom: 16 }} />
-      <div style={{ color: '#F5C842', fontSize: 18, marginBottom: 20 }}>🎂 {date}{age > 0 ? ` · ${age} ans` : ''}</div>
+      <div style={{ color: '#F5C842', fontSize: 18, marginBottom: 20 }}>🎂 {date}</div>
       <div style={{ color: '#E0C8FF', opacity: 0.9, fontSize: 15, textAlign: 'center', lineHeight: 1.7, maxWidth: 480, fontStyle: 'italic' }}>
         « Car je connais les projets que j&apos;ai formés sur vous,{'\n'}
         des projets de paix et non de malheur,{'\n'}

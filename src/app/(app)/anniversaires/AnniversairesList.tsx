@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Profile } from '@/lib/database.types'
-import { formatBirthdayDisplay, daysUntilBirthday, ageThisYear } from '@/lib/database.types'
+import { formatBirthdayDisplay, daysUntilBirthday } from '@/lib/database.types'
 import BirthdayCard from '@/components/BirthdayCard'
 
 type Member = Pick<Profile, 'id' | 'full_name' | 'date_naissance'>
@@ -33,7 +33,6 @@ function MemberCard({ member, highlight = false }: { member: Member; highlight?:
   const [emailError, setEmailError] = useState('')
 
   const date  = formatBirthdayDisplay(member.date_naissance!)
-  const age   = ageThisYear(member.date_naissance!)
   const days  = daysUntilBirthday(member.date_naissance!)
   const initials = getInitials(member.full_name)
 
@@ -79,7 +78,6 @@ function MemberCard({ member, highlight = false }: { member: Member; highlight?:
                 : <span className="ml-1 text-[#B87333]/60">· dans {days} jour{days > 1 ? 's' : ''}</span>
               }
             </p>
-            <p className="text-xs text-[#B87333]/50">{age} ans</p>
           </div>
         </div>
 

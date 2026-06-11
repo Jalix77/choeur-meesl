@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import type { Profile } from '@/lib/database.types'
-import { formatBirthdayDisplay, ageThisYear } from '@/lib/database.types'
+import { formatBirthdayDisplay } from '@/lib/database.types'
 
 export type CardTemplate = 1 | 2 | 3 | 4
 
@@ -35,7 +35,7 @@ function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 }
 
-function CardTemplate1({ name, date, age }: { name: string; date: string; age: number }) {
+function CardTemplate1({ name, date }: { name: string; date: string }) {
   return (
     <div
       className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center p-8 select-none"
@@ -58,7 +58,7 @@ function CardTemplate1({ name, date, age }: { name: string; date: string; age: n
 
       <p className="text-sm tracking-widest mb-1" style={{ color: '#E2B36A', opacity: 0.8 }}>JOYEUX ANNIVERSAIRE</p>
       <h2 className="font-bold text-2xl mb-1" style={{ color: '#F5E6C8', fontFamily: 'Georgia, serif' }}>{name}</h2>
-      <p className="text-sm mb-4" style={{ color: '#E2B36A' }}>🎂 {date} · {age} ans</p>
+      <p className="text-sm mb-4" style={{ color: '#E2B36A' }}>🎂 {date}</p>
 
       <p className="text-xs leading-relaxed max-w-xs" style={{ color: '#E2B36A', opacity: 0.85 }}>
         Que Dieu vous accorde grâce, santé, paix et succès<br />durant cette nouvelle année de vie.
@@ -72,7 +72,7 @@ function CardTemplate1({ name, date, age }: { name: string; date: string; age: n
   )
 }
 
-function CardTemplate2({ name, date, age }: { name: string; date: string; age: number }) {
+function CardTemplate2({ name, date }: { name: string; date: string }) {
   return (
     <div
       className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center p-8 select-none"
@@ -93,7 +93,7 @@ function CardTemplate2({ name, date, age }: { name: string; date: string; age: n
       <p className="text-xs tracking-[0.4em] mb-1 font-semibold" style={{ color: '#C9A227' }}>JOYEUX ANNIVERSAIRE</p>
       <h2 className="text-3xl font-bold mb-1" style={{ color: '#5A3318', fontFamily: 'Georgia, serif' }}>{name}</h2>
       <div className="w-16 h-0.5 mx-auto my-2" style={{ background: 'linear-gradient(90deg, transparent, #C9A227, transparent)' }} />
-      <p className="text-sm mb-3" style={{ color: '#B87333' }}>🎂 {date} · {age} ans</p>
+      <p className="text-sm mb-3" style={{ color: '#B87333' }}>🎂 {date}</p>
 
       <p className="text-xs leading-relaxed max-w-xs" style={{ color: '#7A4A20' }}>
         Que Dieu vous bénisse abondamment<br />et vous accorde une nouvelle année<br />remplie de grâce, de paix et de succès.
@@ -106,7 +106,7 @@ function CardTemplate2({ name, date, age }: { name: string; date: string; age: n
   )
 }
 
-function CardTemplate3({ name, date, age }: { name: string; date: string; age: number }) {
+function CardTemplate3({ name, date }: { name: string; date: string }) {
   return (
     <div
       className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center p-8 select-none"
@@ -140,7 +140,7 @@ function CardTemplate3({ name, date, age }: { name: string; date: string; age: n
       <p className="text-xs tracking-[0.35em] mb-1" style={{ color: '#E2B36A', opacity: 0.7 }}>JOYEUX ANNIVERSAIRE</p>
       <h2 className="text-2xl font-bold mb-1" style={{ color: '#FFFFFF', fontFamily: 'Georgia, serif' }}>{name}</h2>
       <div className="flex gap-1 justify-center my-2 text-base" style={{ color: '#E2B36A' }}>♩ ♪ ♫ ♬ ♫ ♪ ♩</div>
-      <p className="text-sm mb-3" style={{ color: '#E2B36A' }}>{date} · {age} ans</p>
+      <p className="text-sm mb-3" style={{ color: '#E2B36A' }}>{date}</p>
 
       <p className="text-xs leading-relaxed max-w-xs" style={{ color: '#E2B36A', opacity: 0.75 }}>
         Que votre vie soit une symphonie de bénédictions<br />et que Dieu vous comble de sa grâce.
@@ -153,7 +153,7 @@ function CardTemplate3({ name, date, age }: { name: string; date: string; age: n
   )
 }
 
-function CardTemplate4({ name, date, age }: { name: string; date: string; age: number }) {
+function CardTemplate4({ name, date }: { name: string; date: string }) {
   return (
     <div
       className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden flex flex-col items-center justify-center text-center p-8 select-none"
@@ -177,7 +177,7 @@ function CardTemplate4({ name, date, age }: { name: string; date: string; age: n
       <p className="text-xs tracking-[0.35em] mb-1" style={{ color: '#F5C842', opacity: 0.8 }}>JOYEUX ANNIVERSAIRE</p>
       <h2 className="text-2xl font-bold mb-1" style={{ color: '#FFFFFF', fontFamily: 'Georgia, serif' }}>{name}</h2>
       <div className="w-16 h-px mx-auto my-2" style={{ background: '#F5C84255' }} />
-      <p className="text-sm mb-3" style={{ color: '#F5C842' }}>🎂 {date} · {age} ans</p>
+      <p className="text-sm mb-3" style={{ color: '#F5C842' }}>🎂 {date}</p>
 
       <p className="text-xs leading-relaxed max-w-xs italic" style={{ color: '#E0C8FF', opacity: 0.9 }}>
         « Car je connais les projets que j'ai formés sur vous,<br />
@@ -204,9 +204,8 @@ export default function BirthdayCard({ profile, onClose, initialTemplate = 1 }: 
 
   const name = profile.full_name
   const date = profile.date_naissance ? formatBirthdayDisplay(profile.date_naissance) : '—'
-  const age  = profile.date_naissance ? ageThisYear(profile.date_naissance) : 0
 
-  const cardProps = { name, date, age }
+  const cardProps = { name, date }
 
   const downloadUrl = `/api/anniversaires/card/${profile.id}?t=${template}`
 

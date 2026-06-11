@@ -15,9 +15,6 @@ function formatDate(iso: string): string {
   return `${parseInt(d)} ${months[parseInt(m) - 1]}`
 }
 
-function ageThisYear(iso: string): number {
-  return new Date().getFullYear() - parseInt(iso.split('-')[0])
-}
 
 export default async function PublicCardPage({
   params,
@@ -41,8 +38,6 @@ export default async function PublicCardPage({
 
   const name = profile.full_name
   const date = profile.date_naissance ? formatDate(profile.date_naissance) : null
-  const age  = profile.date_naissance ? ageThisYear(profile.date_naissance) : null
-
   const imageUrl  = `/api/anniversaires/card/${id}?t=${template}`
   const pageTitle = `Joyeux Anniversaire, ${name} !`
 
@@ -64,9 +59,7 @@ export default async function PublicCardPage({
           <div className="text-5xl mb-3">🎂</div>
           <h1 className="font-cinzel text-2xl font-bold text-[#5A3318]">{pageTitle}</h1>
           {date && (
-            <p className="text-[#B87333] mt-1">
-              {date}{age ? ` · ${age} ans` : ''}
-            </p>
+            <p className="text-[#B87333] mt-1">{date}</p>
           )}
           <p className="text-sm text-[#7A4A20]/70 mt-2 italic">
             La famille Sel &amp; Lumière vous souhaite une belle journée remplie de grâce.

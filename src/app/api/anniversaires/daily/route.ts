@@ -33,9 +33,6 @@ function formatDate(iso: string): string {
   return `${parseInt(d)} ${months[parseInt(m) - 1]}`
 }
 
-function ageThisYear(iso: string): number {
-  return new Date().getFullYear() - parseInt(iso.split('-')[0])
-}
 
 export async function GET(request: NextRequest) {
   // Security: only Vercel cron or requests with the cron secret
@@ -87,14 +84,13 @@ export async function GET(request: NextRequest) {
 
   // Build member list HTML
   const memberListHtml = todayBirthdays.map(p => {
-    const age      = ageThisYear(p.date_naissance!)
     const date     = formatDate(p.date_naissance!)
     const cardUrl  = `${origin}/anniversaire/${p.id}`
     return `
       <tr>
         <td style="padding:12px 16px;border-bottom:1px solid #E2B36A33;">
           <strong style="color:#5A3318;">${p.full_name}</strong>
-          <br><span style="color:#B87333;font-size:13px;font-family:Arial,sans-serif;">🎂 ${date} · ${age} ans</span>
+          <br><span style="color:#B87333;font-size:13px;font-family:Arial,sans-serif;">🎂 ${date}</span>
         </td>
         <td style="padding:12px 16px;border-bottom:1px solid #E2B36A33;text-align:right;">
           <a href="${cardUrl}"
