@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Profile, Role } from '@/lib/database.types'
 import { formatBirthdayDisplay } from '@/lib/database.types'
 import { ROLE_OPTIONS, ROLE_LABELS } from '@/lib/roles'
@@ -13,7 +14,7 @@ interface Props {
 }
 
 const BLANK_CREATE = { email: '', password: '', full_name: '', role: 'member' as 'admin' | 'member', phone: '', date_naissance: '' }
-const BLANK_EDIT   = { full_name: '', phone: '', date_naissance: '' }
+const BLANK_EDIT   = { full_name: '', phone: '', date_naissance: '', photo_url: '' as string | null }
 
 export default function MemberManager({ profiles: initialProfiles, currentUserId, callerRole }: Props) {
   const isCallerAdmin = callerRole === 'admin'
@@ -25,10 +26,13 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
   const [form, setForm]         = useState(BLANK_CREATE)
 
   // Edit modal
-  const [editId, setEditId]     = useState<string | null>(null)
-  const [editForm, setEditForm] = useState(BLANK_EDIT)
+  const [editId, setEditId]         = useState<string | null>(null)
+  const [editForm, setEditForm]     = useState(BLANK_EDIT)
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError]   = useState('')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoPreview, setPhotoPreview]     = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function setField(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
 
@@ -90,8 +94,64 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
 
   function openEdit(p: Profile) {
     setEditId(p.id)
-    setEditForm({ full_name: p.full_name, phone: p.phone ?? '', date_naissance: p.date_naissance ?? '' })
+    setEditForm({ full_name: p.full_name, phone: p.phone ?? '', date_naissance: p.date_naissance ?? '', photo_url: p.photo_url ?? null })
+    setPhotoPreview(p.photo_url ?? null)
     setEditError('')
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !editId) return
+    setPhotoUploading(true); setEditError('')
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file)
+    setPhotoPreview(localUrl)
+
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${editId}/profile.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('member-photos')
+      .upload(path, file, { upsert: true, contentType: file.type })
+
+    if (uploadError) {
+      setEditError('Erreur upload photo: ' + uploadError.message)
+      setPhotoUploading(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('member-photos')
+      .getPublicUrl(path)
+
+    // Bust cache by adding timestamp
+    const urlWithTs = `${publicUrl}?t=${Date.now()}`
+    setEditForm(f => ({ ...f, photo_url: urlWithTs }))
+    setPhotoPreview(urlWithTs)
+    setPhotoUploading(false)
+  }
+
+  async function handleRemovePhoto() {
+    if (!editId || !confirm('Supprimer la photo ?')) return
+    setPhotoUploading(true)
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    // Try to remove all common extensions
+    await Promise.allSettled([
+      supabase.storage.from('member-photos').remove([`${editId}/profile.jpg`]),
+      supabase.storage.from('member-photos').remove([`${editId}/profile.jpeg`]),
+      supabase.storage.from('member-photos').remove([`${editId}/profile.png`]),
+      supabase.storage.from('member-photos').remove([`${editId}/profile.webp`]),
+    ])
+    setEditForm(f => ({ ...f, photo_url: null }))
+    setPhotoPreview(null)
+    setPhotoUploading(false)
   }
 
   async function handleEdit(e: React.FormEvent) {
@@ -106,12 +166,18 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
         full_name: editForm.full_name,
         phone: editForm.phone || null,
         date_naissance: editForm.date_naissance || null,
+        photo_url: editForm.photo_url ?? null,
       }),
     })
     const json = await res.json()
     if (!res.ok) { setEditError(json.error ?? 'Erreur'); setEditSaving(false); return }
     setProfiles(p => p.map(x => x.id === editId
-      ? { ...x, full_name: editForm.full_name, phone: editForm.phone || null, date_naissance: editForm.date_naissance || null }
+      ? { ...x,
+          full_name: editForm.full_name,
+          phone: editForm.phone || null,
+          date_naissance: editForm.date_naissance || null,
+          photo_url: editForm.photo_url ?? null,
+        }
       : x))
     setEditId(null)
     setEditSaving(false)
@@ -128,6 +194,44 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
             <h3 className="font-cinzel font-bold text-[#5A3318] mb-4">Modifier le profil</h3>
             <form onSubmit={handleEdit} className="space-y-3">
+              {/* Photo upload */}
+              <div>
+                <label className="block text-xs font-semibold text-[#5A3318] mb-2">Photo de profil</label>
+                <div className="flex items-center gap-3">
+                  {/* Preview */}
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#E2B36A]/60 flex-shrink-0 bg-[#FBF6EC] flex items-center justify-center">
+                    {photoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[#B87333] text-xl">👤</span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <button type="button"
+                      disabled={photoUploading}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="block text-xs bg-[#E2B36A]/30 hover:bg-[#E2B36A]/50 text-[#5A3318] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60">
+                      {photoUploading ? '⏳ Envoi…' : '📷 Choisir photo'}
+                    </button>
+                    {photoPreview && (
+                      <button type="button"
+                        onClick={handleRemovePhoto}
+                        className="block text-xs text-red-500 hover:underline">
+                        🗑 Supprimer photo
+                      </button>
+                    )}
+                    <p className="text-[10px] text-[#B87333]/60">JPG/PNG/WebP · max 5 Mo</p>
+                  </div>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handlePhotoChange}
+                />
+              </div>
               {isCallerAdmin && (
                 <div>
                   <label className="block text-xs font-semibold text-[#5A3318] mb-1">Nom complet *</label>
@@ -137,17 +241,17 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
               )}
               <div>
                 <label className="block text-xs font-semibold text-[#5A3318] mb-1">Téléphone</label>
-                <input className={inputCls} type="tel" value={editForm.phone} placeholder="+509 xxxx xxxx"
+                <input className={inputCls} type="tel" value={editForm.phone ?? ''} placeholder="+509 xxxx xxxx"
                   onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[#5A3318] mb-1">Date de naissance</label>
-                <input className={inputCls} type="date" value={editForm.date_naissance}
+                <input className={inputCls} type="date" value={editForm.date_naissance ?? ''}
                   onChange={e => setEditForm(f => ({ ...f, date_naissance: e.target.value }))} />
               </div>
               {editError && <p className="text-red-600 text-sm">{editError}</p>}
               <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={editSaving}
+                <button type="submit" disabled={editSaving || photoUploading}
                   className="bg-[#B87333] hover:bg-[#5A3318] text-white text-sm px-4 py-2 rounded-lg transition-colors disabled:opacity-60 flex-1">
                   {editSaving ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
@@ -232,9 +336,21 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
             {profiles.map((p, i) => (
               <tr key={p.id} className={`border-t border-[#E2B36A]/30 ${i % 2 === 0 ? '' : 'bg-[#FBF6EC]/50'}`}>
                 <td className="px-4 py-3">
-                  <span className="font-semibold text-[#5A3318]">{p.full_name}</span>
-                  {p.id === currentUserId && <span className="ml-1 text-xs text-[#B87333]">(vous)</span>}
-                  {p.phone && <p className="text-xs text-[#B87333]/60 mt-0.5">{p.phone}</p>}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full overflow-hidden border border-[#E2B36A]/40 flex-shrink-0 bg-[#FBF6EC] flex items-center justify-center text-xs font-bold text-[#B87333]">
+                      {p.photo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        p.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[#5A3318]">{p.full_name}</span>
+                      {p.id === currentUserId && <span className="ml-1 text-xs text-[#B87333]">(vous)</span>}
+                      {p.phone && <p className="text-xs text-[#B87333]/60 mt-0.5">{p.phone}</p>}
+                    </div>
+                  </div>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   {p.date_naissance ? (

@@ -13,7 +13,10 @@
       "Bash(mkdir -p \"C:/Users/jajep/Choeur.meesl/src/app/api/anniversaires/card/[id]\")",
       "Bash(mkdir -p \"C:/Users/jajep/Choeur.meesl/src/app/anniversaire/[id]\")",
       "Bash(git add *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(cd \"/mnt/c/Users/jajep/Choeur.meesl\" && npm install html-to-image --save 2>&1 | tail -20)",
+      "Bash(find / -name \"Choeur.meesl\" -type d 2>/dev/null | head -3)"
     ]
   }
 }

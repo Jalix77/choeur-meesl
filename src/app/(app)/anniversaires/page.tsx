@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Profile } from '@/lib/database.types'
 import {
   isBirthdayToday, isBirthdayThisWeek, isBirthdayThisMonth,
-  formatBirthdayDisplay, daysUntilBirthday, ageThisYear,
+  daysUntilBirthday,
 } from '@/lib/database.types'
 import AnniversairesList from './AnniversairesList'
 
@@ -13,12 +13,12 @@ export default async function AnniversairesPage() {
 
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, full_name, date_naissance')
+    .select('id, full_name, date_naissance, photo_url')
     .eq('active', true)
     .not('date_naissance', 'is', null)
     .order('full_name')
 
-  const withBirthday = (profiles ?? []) as Pick<Profile, 'id' | 'full_name' | 'date_naissance'>[]
+  const withBirthday = (profiles ?? []) as Pick<Profile, 'id' | 'full_name' | 'date_naissance' | 'photo_url'>[]
 
   const todayList  = withBirthday.filter(p => isBirthdayToday(p.date_naissance!))
   const weekList   = withBirthday.filter(p => isBirthdayThisWeek(p.date_naissance!) && !isBirthdayToday(p.date_naissance!))
