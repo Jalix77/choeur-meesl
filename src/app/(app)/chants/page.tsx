@@ -19,12 +19,12 @@ export default async function SongsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-cinzel text-2xl font-bold text-[#5A3318]">Chants</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-cinzel text-xl sm:text-2xl font-bold text-[#5A3318]">Chants</h1>
         {canEdit && (
           <Link href="/chants/nouveau"
-            className="bg-[#B87333] hover:bg-[#5A3318] text-white font-cinzel text-sm px-4 py-2 rounded-lg transition-colors">
-            + Nouveau chant
+            className="bg-[#B87333] hover:bg-[#5A3318] text-white font-cinzel text-sm px-3 sm:px-4 py-2 rounded-lg transition-colors whitespace-nowrap flex-shrink-0">
+            + Nouveau
           </Link>
         )}
       </div>
@@ -53,22 +53,22 @@ export default async function SongsPage({ searchParams }: { searchParams: Promis
         <div className="grid gap-2">
           {songs.map((song: Song) => (
             <div key={song.id}
-              className="flex items-center justify-between bg-white/60 border border-[#E2B36A]/40 rounded-xl px-4 py-3 hover:border-[#B87333]/50 transition-colors">
+              className="flex items-center justify-between bg-white/60 border border-[#E2B36A]/40 rounded-xl px-3 sm:px-4 py-3 hover:border-[#B87333]/50 transition-colors gap-2">
               <div className="flex-1 min-w-0">
                 <Link href={`/chants/${song.id}`}
-                  className="font-semibold text-[#5A3318] hover:text-[#B87333] transition-colors">
+                  className="font-semibold text-[#5A3318] hover:text-[#B87333] transition-colors text-sm sm:text-base line-clamp-1">
                   {song.title}
                 </Link>
-                <div className="flex items-center gap-3 mt-0.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                   {song.key_signature && <span className="text-xs text-[#B87333]">Ton : {song.key_signature}</span>}
-                  {song.tempo && <span className="text-xs text-[#7A4A20]">♩ {song.tempo} bpm</span>}
-                  {song.author && <span className="text-xs text-[#7A4A20] truncate">{song.author}</span>}
+                  {song.tempo && <span className="text-xs text-[#7A4A20]">♩ {song.tempo}</span>}
+                  {song.author && <span className="text-xs text-[#7A4A20] truncate max-w-[120px]">{song.author}</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-3">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Link href={`/chants/${song.id}`} className="text-xs text-[#B87333] hover:underline">Voir</Link>
                 {canEdit && (
-                  <Link href={`/chants/${song.id}/modifier`} className="text-xs text-[#7A4A20] hover:underline">Modifier</Link>
+                  <Link href={`/chants/${song.id}/modifier`} className="text-xs text-[#7A4A20] hover:underline hidden sm:inline">Modifier</Link>
                 )}
               </div>
             </div>

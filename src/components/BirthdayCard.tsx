@@ -705,14 +705,15 @@ export default function BirthdayCard({ profile, onClose, initialTemplate = 1 }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 overflow-y-auto"
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-start sm:items-center justify-center p-2 sm:p-3 overflow-y-auto"
       onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-4"
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-lg my-2 sm:my-4"
+        style={{ maxHeight: '95dvh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="bg-[#5A3318] px-5 py-3 rounded-t-2xl flex items-center justify-between">
-          <h3 className="font-cinzel text-white font-bold text-sm">🎂 Carte anniversaire — {name}</h3>
+        <div className="bg-[#5A3318] px-4 py-3 rounded-t-2xl flex items-center justify-between sticky top-0 z-10">
+          <h3 className="font-cinzel text-white font-bold text-xs sm:text-sm truncate pr-2">🎂 {name}</h3>
           {onClose && (
             <button onClick={onClose} className="text-[#E2B36A] hover:text-white text-lg leading-none">✕</button>
           )}
@@ -764,7 +765,7 @@ export default function BirthdayCard({ profile, onClose, initialTemplate = 1 }: 
           </div>
 
           {/* Actions */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 pb-2">
             <button onClick={handleDownload} disabled={downloading}
               className="flex items-center justify-center gap-1.5 bg-[#5A3318] hover:bg-[#3D1F0A] text-white text-xs px-3 py-2.5 rounded-lg transition-colors font-semibold disabled:opacity-60">
               {downloading ? (

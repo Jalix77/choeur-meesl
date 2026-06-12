@@ -128,9 +128,9 @@ function PhotoModal({ profileId, profileName, currentUrl, onSaved, onClose }: Ph
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 p-3 overflow-y-auto"
       onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xs"
+      <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-[92vw] sm:max-w-xs my-4"
         onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -339,9 +339,9 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
 
       {/* ── Edit profile modal ────────────────────────────────────────────── */}
       {editId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/40 p-3 overflow-y-auto"
           onClick={() => setEditId(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm"
+          <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-[92vw] sm:max-w-sm my-4"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-cinzel font-bold text-[#5A3318]">Modifier le profil</h3>
@@ -391,7 +391,7 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
         <div className="bg-white/80 border border-[#E2B36A]/60 rounded-xl p-5 shadow">
           <h3 className="font-cinzel font-bold text-[#5A3318] mb-4">Nouveau membre</h3>
           <form onSubmit={handleCreate} className="space-y-3">
-            <div className="grid md:grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-[#5A3318] mb-1">Nom complet *</label>
                 <input className={inputCls} value={form.full_name} onChange={e => setField('full_name', e.target.value)} required />
@@ -434,23 +434,90 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
         </div>
       ))}
 
-      {/* ── Members table ─────────────────────────────────────────────────── */}
-      <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl overflow-x-auto shadow-sm">
+      {/* ── Mobile: carte par membre (< md) ──────────────────────────────── */}
+      <div className="md:hidden space-y-3">
+        {profiles.map(p => (
+          <div key={p.id} className="bg-white/80 border border-[#E2B36A]/40 rounded-xl p-4 shadow-sm">
+            {/* Header: avatar + nom + statut */}
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar url={p.avatar_url} name={p.full_name} />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-[#5A3318] leading-tight">
+                  {p.full_name}
+                  {p.id === currentUserId && <span className="ml-1 text-xs text-[#B87333] font-normal">(vous)</span>}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-xs text-[#B87333] font-semibold">{ROLE_LABELS[p.role]}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                    p.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'
+                  }`}>{p.active ? 'Actif' : 'Désactivé'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Details */}
+            <div className="space-y-1 mb-3 text-xs text-[#7A4A20]">
+              {p.phone && <p>📞 {p.phone}</p>}
+              {p.date_naissance && <p>🎂 {formatBirthdayDisplay(p.date_naissance)}</p>}
+            </div>
+
+            {/* Role change (admin) */}
+            {isCallerAdmin && p.id !== currentUserId && (
+              <div className="mb-3">
+                <select value={p.role}
+                  onChange={e => handleRoleChange(p.id, e.target.value as Role)}
+                  className="border border-[#E2B36A]/50 rounded-lg px-2 py-1.5 text-xs bg-[#FBF6EC] text-[#5A3318] w-full">
+                  {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => openEdit(p)}
+                className="flex-1 min-w-[80px] text-xs border border-[#E2B36A]/60 text-[#5A3318] px-3 py-2 rounded-lg hover:bg-[#E2B36A]/20 transition-colors text-center">
+                ✏️ Modifier
+              </button>
+              <button onClick={() => setPhotoProfile(p)}
+                className={`flex-1 min-w-[80px] text-xs px-3 py-2 rounded-lg transition-colors border text-center ${
+                  p.avatar_url
+                    ? 'border-[#B87333]/50 bg-[#B87333]/10 text-[#5A3318] hover:bg-[#B87333]/20'
+                    : 'border-[#E2B36A]/60 text-[#B87333]/70 hover:bg-[#E2B36A]/20'
+                }`}>
+                {p.avatar_url ? '🖼 Photo' : '📷 Photo'}
+              </button>
+              {isCallerAdmin && p.id !== currentUserId && (
+                <>
+                  <button onClick={() => handleToggleActive(p.id, p.active)}
+                    className="flex-1 min-w-[80px] text-xs border border-[#B87333]/40 text-[#B87333] px-3 py-2 rounded-lg hover:bg-[#B87333]/10 transition-colors text-center">
+                    {p.active ? 'Désactiver' : 'Activer'}
+                  </button>
+                  <button onClick={() => handleDelete(p.id)}
+                    className="flex-1 min-w-[80px] text-xs border border-red-300 text-red-500 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors text-center">
+                    🗑 Supprimer
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Desktop: tableau (≥ md) ────────────────────────────────────────── */}
+      <div className="hidden md:block bg-white/60 border border-[#E2B36A]/40 rounded-xl overflow-x-auto shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-[#5A3318] text-white">
             <tr>
               <th className="text-left px-4 py-3 font-cinzel font-normal">Membre</th>
-              <th className="text-left px-4 py-3 font-cinzel font-normal hidden md:table-cell">Anniversaire</th>
+              <th className="text-left px-4 py-3 font-cinzel font-normal">Anniversaire</th>
               <th className="text-left px-4 py-3 font-cinzel font-normal">Rôle</th>
-              <th className="text-left px-4 py-3 font-cinzel font-normal hidden sm:table-cell">Statut</th>
+              <th className="text-left px-4 py-3 font-cinzel font-normal">Statut</th>
               <th className="px-4 py-3 font-cinzel font-normal text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {profiles.map((p, i) => (
               <tr key={p.id} className={`border-t border-[#E2B36A]/30 ${i % 2 === 0 ? '' : 'bg-[#FBF6EC]/40'}`}>
-
-                {/* Nom + avatar */}
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <Avatar url={p.avatar_url} name={p.full_name} />
@@ -463,17 +530,11 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                     </div>
                   </div>
                 </td>
-
-                {/* Anniversaire */}
-                <td className="px-4 py-3 hidden md:table-cell">
+                <td className="px-4 py-3">
                   {p.date_naissance ? (
                     <span className="text-xs text-[#5A3318]">🎂 {formatBirthdayDisplay(p.date_naissance)}</span>
-                  ) : (
-                    <span className="text-xs text-[#B87333]/30">—</span>
-                  )}
+                  ) : <span className="text-xs text-[#B87333]/30">—</span>}
                 </td>
-
-                {/* Rôle */}
                 <td className="px-4 py-3">
                   {isCallerAdmin && p.id !== currentUserId ? (
                     <select value={p.role}
@@ -485,37 +546,20 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                     <span className="text-xs text-[#B87333] font-semibold">{ROLE_LABELS[p.role]}</span>
                   )}
                 </td>
-
-                {/* Statut */}
-                <td className="px-4 py-3 hidden sm:table-cell">
+                <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                     p.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'
-                  }`}>
-                    {p.active ? 'Actif' : 'Désactivé'}
-                  </span>
+                  }`}>{p.active ? 'Actif' : 'Désactivé'}</span>
                 </td>
-
-                {/* Actions */}
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
-
-                    {/* ✏️ Edit profil */}
-                    <button onClick={() => openEdit(p)} title="Modifier le profil"
-                      className="text-xs border border-[#E2B36A]/60 text-[#5A3318] px-2 py-1.5 rounded-lg hover:bg-[#E2B36A]/20 transition-colors">
-                      ✏️
-                    </button>
-
-                    {/* 📷 Photo */}
-                    <button onClick={() => setPhotoProfile(p)} title={p.avatar_url ? 'Changer/supprimer la photo' : 'Ajouter une photo'}
+                    <button onClick={() => openEdit(p)} title="Modifier"
+                      className="text-xs border border-[#E2B36A]/60 text-[#5A3318] px-2 py-1.5 rounded-lg hover:bg-[#E2B36A]/20 transition-colors">✏️</button>
+                    <button onClick={() => setPhotoProfile(p)} title={p.avatar_url ? 'Changer photo' : 'Ajouter photo'}
                       className={`text-xs px-2 py-1.5 rounded-lg transition-colors border ${
-                        p.avatar_url
-                          ? 'border-[#B87333]/50 bg-[#B87333]/10 text-[#5A3318] hover:bg-[#B87333]/20'
+                        p.avatar_url ? 'border-[#B87333]/50 bg-[#B87333]/10 text-[#5A3318] hover:bg-[#B87333]/20'
                           : 'border-[#E2B36A]/60 text-[#B87333]/60 hover:bg-[#E2B36A]/20'
-                      }`}>
-                      {p.avatar_url ? '🖼' : '📷'}
-                    </button>
-
-                    {/* Admin only */}
+                      }`}>{p.avatar_url ? '🖼' : '📷'}</button>
                     {isCallerAdmin && p.id !== currentUserId && (
                       <>
                         <button onClick={() => handleToggleActive(p.id, p.active)}
@@ -523,9 +567,7 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                           {p.active ? 'Désactiver' : 'Activer'}
                         </button>
                         <button onClick={() => handleDelete(p.id)}
-                          className="text-xs border border-red-300 text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                          Supprimer
-                        </button>
+                          className="text-xs border border-red-300 text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Supprimer</button>
                       </>
                     )}
                   </div>

@@ -43,32 +43,34 @@ export default async function SongPage({ params, searchParams }: {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Link href="/chants" className="text-xs text-[#B87333] hover:underline">← Retour aux chants</Link>
-          <h1 className="font-cinzel text-2xl font-bold text-[#5A3318] mt-1">{song.title}</h1>
-          {song.author && <p className="text-sm text-[#B87333]/70 mt-0.5">{song.author}</p>}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Link
-            href={`/chants/${id}/imprimer?t=${initialTranspose}`}
-            className="border border-[#B87333] text-[#B87333] hover:bg-[#B87333] hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
-          >
-            🖨 Imprimer / PDF
-          </Link>
-          {isAdmin && (
+      <div className="space-y-3">
+        <Link href="/chants" className="text-xs text-[#B87333] hover:underline">← Retour aux chants</Link>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-cinzel text-xl sm:text-2xl font-bold text-[#5A3318] leading-tight">{song.title}</h1>
+            {song.author && <p className="text-sm text-[#B87333]/70 mt-0.5">{song.author}</p>}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
             <Link
-              href={`/chants/${id}/modifier`}
-              className="bg-[#B87333] hover:bg-[#5A3318] text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+              href={`/chants/${id}/imprimer?t=${initialTranspose}`}
+              className="border border-[#B87333] text-[#B87333] hover:bg-[#B87333] hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
             >
-              Modifier le chant
+              🖨 Imprimer / PDF
             </Link>
-          )}
+            {isAdmin && (
+              <Link
+                href={`/chants/${id}/modifier`}
+                className="bg-[#B87333] hover:bg-[#5A3318] text-white text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+              >
+                Modifier
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Song sheet */}
-      <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl p-5 shadow-sm">
+      <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl p-3 sm:p-5 shadow-sm overflow-x-hidden">
         <SongSheet song={song} initialTranspose={initialTranspose} />
       </div>
 

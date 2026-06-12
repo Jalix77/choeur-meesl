@@ -10,10 +10,20 @@
   --brown-mid: #7A4A20;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--cream);
   color: var(--brown-deep);
   font-family: 'Spectral', serif;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .font-cinzel { font-family: 'Cinzel', serif; }

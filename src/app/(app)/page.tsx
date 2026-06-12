@@ -53,11 +53,11 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-cinzel text-2xl font-bold text-[#5A3318]">Tableau de bord</h1>
+        <h1 className="font-cinzel text-xl sm:text-2xl font-bold text-[#5A3318]">Tableau de bord</h1>
         <p className="font-cormorant italic text-[#B87333] text-lg">Bienvenue dans l&apos;espace du Chœur de Louange</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
         {/* Prochaine répétition */}
         <div className="bg-white/60 border border-[#E2B36A]/50 rounded-xl p-5 shadow-sm">
           <h2 className="font-cinzel text-[#5A3318] font-bold text-lg mb-3 flex items-center gap-2">
@@ -118,7 +118,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* 🎂 Widget anniversaires */}
-        <div className="md:col-span-2 bg-gradient-to-br from-[#FBF6EC] to-white border border-[#E2B36A]/50 rounded-xl p-5 shadow-sm">
+        <div className="sm:col-span-2 bg-gradient-to-br from-[#FBF6EC] to-white border border-[#E2B36A]/50 rounded-xl p-4 sm:p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-cinzel text-[#5A3318] font-bold text-lg flex items-center gap-2">
               🎂 Anniversaires
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {/* Aujourd'hui */}
             <div className="bg-white border border-[#E2B36A]/40 rounded-xl p-4">
               <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide mb-2">Aujourd&apos;hui</p>

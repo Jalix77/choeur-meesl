@@ -62,8 +62,8 @@ export default async function PlanningPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-cinzel text-2xl font-bold text-[#5A3318]">Planning des répétitions</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-cinzel text-xl sm:text-2xl font-bold text-[#5A3318]">Planning</h1>
       </div>
 
       {/* Show query error if any */}
@@ -88,8 +88,8 @@ export default async function PlanningPage() {
             (RehearsalChorister & { profiles?: { id: string; full_name: string; phone?: string | null } })[]
 
           return (
-            <div key={rehearsal.id} className={`bg-white/60 border rounded-xl p-5 shadow-sm ${isPast ? 'opacity-60 border-[#E2B36A]/20' : 'border-[#E2B36A]/50'}`}>
-              <div className="flex items-start justify-between gap-3">
+            <div key={rehearsal.id} className={`bg-white/60 border rounded-xl p-4 sm:p-5 shadow-sm ${isPast ? 'opacity-60 border-[#E2B36A]/20' : 'border-[#E2B36A]/50'}`}>
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
                 <div>
                   {rehearsal.title && (
                     <p className="font-cinzel text-xs font-semibold text-[#9C3D6E] uppercase tracking-wider mb-0.5">{rehearsal.title}</p>

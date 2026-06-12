@@ -22,7 +22,7 @@ export default async function AnnouncesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-cinzel text-2xl font-bold text-[#5A3318]">Annonces</h1>
+        <h1 className="font-cinzel text-xl sm:text-2xl font-bold text-[#5A3318]">Annonces</h1>
         {isAdmin && <AnnouncementManager />}
       </div>
 

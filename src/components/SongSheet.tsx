@@ -72,14 +72,24 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
     })
   })
 
-  // Two-column body — sections can flow across columns; individual lines cannot break
+  // Two-column body on desktop, single column on mobile (JS-driven, so we use window.innerWidth)
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   const bodyStyle: React.CSSProperties = {
     fontSize,
-    columnCount: 2,
+    columnCount: isMobile ? 1 : 2,
     columnGap: '42px',
-    columnRuleWidth: 1,
+    columnRuleWidth: isMobile ? 0 : 1,
     columnRuleStyle: 'solid',
     columnRuleColor: '#D9C49B',
+    overflowX: 'hidden',
+    wordBreak: 'break-word',
   }
 
   // A lyric line (with or without chords) must not split across columns
@@ -107,7 +117,7 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
     <div>
       {/* Controls */}
       {!printMode && (
-        <div className="no-print flex flex-wrap items-center gap-3 mb-5 p-3 bg-[#E2B36A]/20 border border-[#E2B36A]/50 rounded-xl">
+        <div className="no-print flex flex-wrap items-center gap-2 sm:gap-3 mb-5 p-2.5 sm:p-3 bg-[#E2B36A]/20 border border-[#E2B36A]/50 rounded-xl">
           <div className="flex items-center gap-1">
             <span className="text-xs font-semibold text-[#5A3318] mr-1">Transposer</span>
             <button onClick={() => setSemitones(s => s - 1)} className="w-7 h-7 rounded bg-[#B87333] text-white font-bold hover:bg-[#5A3318]">-</button>

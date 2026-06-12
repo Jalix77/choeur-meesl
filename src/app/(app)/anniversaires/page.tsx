@@ -34,7 +34,7 @@ export default async function AnniversairesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-cinzel text-2xl font-bold text-[#5A3318]">🎂 Anniversaires</h1>
+        <h1 className="font-cinzel text-xl sm:text-2xl font-bold text-[#5A3318]">🎂 Anniversaires</h1>
         <p className="text-[#B87333] text-sm mt-1">Célébrons ensemble les membres du Chœur de Louange</p>
       </div>
 
