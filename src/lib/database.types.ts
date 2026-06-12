@@ -263,6 +263,31 @@ export interface Database {
         };
         Relationships: [];
       };
+      announcement_recipients: {
+        Row: {
+          id: string;
+          announcement_id: string;
+          profile_id: string;
+          channel: string;
+          status: string;
+          sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          announcement_id: string;
+          profile_id: string;
+          channel?: string;
+          status?: string;
+          sent_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          status?: string;
+          sent_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -290,6 +315,12 @@ export type Rehearsal = Database['public']['Tables']['rehearsals']['Row'] & {
 }
 export type RehearsalSong = Database['public']['Tables']['rehearsal_songs']['Row']
 export type Announcement = Database['public']['Tables']['announcements']['Row']
+export type AnnouncementRecipient = Database['public']['Tables']['announcement_recipients']['Row']
+
+/** Announcement enrichi avec le comptage des destinataires (issu du select embedded) */
+export type AnnouncementWithRecipients = Announcement & {
+  announcement_recipients: Pick<AnnouncementRecipient, 'id' | 'status'>[]
+}
 
 export type RehearsalChorister = {
   id: string

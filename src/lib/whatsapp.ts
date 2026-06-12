@@ -35,6 +35,57 @@ export function cleanPhone(phone: string): string {
   return leading + phone.replace(/\D/g, '')
 }
 
+/**
+ * Nettoie un numéro de téléphone haïtien et retourne uniquement les chiffres
+ * au format international (509XXXXXXXX) — sans + — pour les liens wa.me.
+ *
+ * Cas gérés :
+ *   "+509 3797 1717"  → "50937971717"
+ *   "509 3797 1717"   → "50937971717"
+ *   "37971717"        → "50937971717"  (8 chiffres, commence par 3 ou 4)
+ *   "47971717"        → "50947971717"
+ *   "0 3797 1717"     → "50937971717"  (9 chiffres, commence par 0)
+ *   "+1 509 3797 1717"→ "50937971717"
+ * Retourne null si le numéro est vide ou invalide.
+ */
+export function cleanHaitianPhone(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return null
+  // Déjà au format 509XXXXXXXX (11 chiffres)
+  if (digits.startsWith('509') && digits.length === 11) return digits
+  // Format +1509XXXXXXXXX (12 chiffres)
+  if (digits.startsWith('1509') && digits.length === 12) return digits.slice(1)
+  // 8 chiffres, commence par 3 ou 4 (mobile haïtien)
+  if (digits.length === 8 && (digits[0] === '3' || digits[0] === '4')) return '509' + digits
+  // 9 chiffres avec 0 en tête
+  if (digits.startsWith('0') && digits.length === 9) return '509' + digits.slice(1)
+  // Autre — garder tel quel si longueur raisonnable
+  return digits.length >= 7 ? digits : null
+}
+
+/** Construit le texte du message WhatsApp pour une annonce */
+export function buildAnnouncementWAMessage(title: string, content: string): string {
+  return [
+    '📢 ANNONCE — CHŒUR DE LOUANGE MEESL',
+    '',
+    title,
+    '',
+    content,
+    '',
+    'Que Dieu vous bénisse.',
+    '',
+    'Mission Église Évangélique Sel et Lumière — Delmas 48',
+  ].join('\n')
+}
+
+/** Construit le lien wa.me pour une annonce. Retourne null si le numéro est invalide. */
+export function buildAnnouncementWAUrl(phone: string, title: string, content: string): string | null {
+  const cleaned = cleanHaitianPhone(phone)
+  if (!cleaned) return null
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(buildAnnouncementWAMessage(title, content))}`
+}
+
 export function buildWhatsAppMessage(opts: {
   name: string
   vocal_role: string
