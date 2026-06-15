@@ -25,21 +25,25 @@ async function getCallerProfile(request: NextRequest) {
   return profile as { id: string; role: 'admin' | 'leader' | 'member' } | null
 }
 
-// POST — create user — admin only
+// POST — create user — admin or leader (leader can only create members)
 export async function POST(request: NextRequest) {
   const caller = await getCallerProfile(request)
-  if (caller?.role !== "admin") {
+  if (!caller || (caller.role !== "admin" && caller.role !== "leader")) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
   }
 
   const { email, password, full_name, role } = await request.json()
+
+  // Leaders can only create members, never admin or leader
+  const assignedRole = caller.role === "leader" ? "member" : (role ?? "member")
+
   const admin = createAdminClient()
 
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name, role: role ?? "member" },
+    user_metadata: { full_name, role: assignedRole },
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

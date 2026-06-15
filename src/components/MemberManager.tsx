@@ -383,8 +383,8 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
         </div>
       )}
 
-      {/* ── Add member button / form — admin only ─────────────────────────── */}
-      {isCallerAdmin && (!showAdd ? (
+      {/* ── Add member button / form — admin or leader ────────────────────── */}
+      {canManageMembers && (!showAdd ? (
         <button onClick={() => setShowAdd(true)}
           className="bg-[#B87333] hover:bg-[#5A3318] text-white font-cinzel text-sm px-4 py-2 rounded-lg transition-colors">
           + Ajouter un membre
@@ -406,12 +406,14 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                 <label className="block text-xs font-semibold text-[#5A3318] mb-1">Mot de passe *</label>
                 <input type="password" className={inputCls} value={form.password} onChange={e => setField('password', e.target.value)} required minLength={6} />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#5A3318] mb-1">Rôle</label>
-                <select className={inputCls} value={form.role} onChange={e => setField('role', e.target.value)}>
-                  {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
+              {isCallerAdmin && (
+                <div>
+                  <label className="block text-xs font-semibold text-[#5A3318] mb-1">Rôle</label>
+                  <select className={inputCls} value={form.role} onChange={e => setField('role', e.target.value)}>
+                    {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-semibold text-[#5A3318] mb-1">Téléphone</label>
                 <input className={inputCls} type="tel" value={form.phone} placeholder="+509 xxxx xxxx" onChange={e => setField('phone', e.target.value)} />
