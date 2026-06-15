@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { parseSong, transposeSong, type Notation } from '@/lib/chords'
@@ -50,6 +50,77 @@ const CRD_STYLE: React.CSSProperties = {
   color: '#9C3D6E',
 }
 
+type Section = ReturnType<typeof parseSong>['sections'][number]
+
+function renderSection(
+  section: Section,
+  si: number,
+  fontSize: number,
+) {
+  const lyricLineStyle: React.CSSProperties = {
+    margin: '0 0 3px',
+    lineHeight: 2.55,
+    fontFamily: "'Spectral', Georgia, serif",
+    color: '#3C2410',
+    overflow: 'visible',
+    whiteSpace: 'normal',
+  }
+
+  return (
+    <div
+      key={si}
+      style={{
+        marginBottom: 22,
+        breakInside: 'avoid',
+        pageBreakInside: 'avoid',
+        fontSize,
+      }}
+    >
+      {section.label && (
+        <div style={{ marginBottom: 6 }}>
+          <span style={{ ...BADGE_BASE, ...sectionBadge(section.label) }}>
+            {section.label}
+          </span>
+        </div>
+      )}
+      {section.lines.map((line, li) => {
+        // Empty line
+        if (!line.hasChords && line.tokens.every(t => !t.lyric.trim())) {
+          return <div key={li} style={{ ...lyricLineStyle, lineHeight: 1 }}>&nbsp;</div>
+        }
+        // Plain line
+        if (!line.hasChords) {
+          return (
+            <div key={li} style={lyricLineStyle}>
+              <span style={{ whiteSpace: 'pre', fontFamily: "'Spectral', Georgia, serif", color: '#3C2410', fontWeight: 500 }}>
+                {line.tokens.map(t => t.lyric).join('')}
+              </span>
+            </div>
+          )
+        }
+        // Line with chords — kept as one indivisible block
+        return (
+          <div key={li} style={lyricLineStyle}>
+            {line.tokens.map((token, ti) => {
+              if (!token.chord) {
+                return token.lyric
+                  ? <span key={ti} style={{ whiteSpace: 'pre', fontFamily: "'Spectral', Georgia, serif", color: '#3C2410', fontWeight: 500 }}>{token.lyric}</span>
+                  : null
+              }
+              return (
+                <span key={ti} data-syl style={SYL_BASE}>
+                  <span data-crd style={CRD_STYLE}>{token.chord}</span>
+                  {token.lyric === '' ? ' ' : token.lyric}
+                </span>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function SongSheet({ song, initialTranspose = 0, printMode = false }: SongSheetProps) {
   const [semitones, setSemitones] = useState(initialTranspose)
   const [notation, setNotation]   = useState<Notation>(song.notation ?? 'latin')
@@ -72,31 +143,11 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
     })
   })
 
-  const bodyStyle: React.CSSProperties = {
-    fontSize,
-    maxWidth: 900,
-    margin: '0 auto',
-    overflowX: 'hidden',
-    wordBreak: 'break-word',
-  }
-
-  const lyricLineStyle: React.CSSProperties = {
-    margin: '0 0 3px',
-    lineHeight: 2.55,
-    fontFamily: "'Spectral', Georgia, serif",
-    color: '#3C2410',
-    overflow: 'visible',
-    whiteSpace: 'normal',
-  }
-
-  const sectionStyle: React.CSSProperties = {
-    marginBottom: 18,
-  }
-
-  const labelBlockStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-  }
+  // Split sections into two balanced columns (first half left, second half right)
+  const sections = displayed.sections
+  const half = Math.ceil(sections.length / 2)
+  const leftSections  = sections.slice(0, half)
+  const rightSections = sections.slice(half)
 
   return (
     <div>
@@ -131,63 +182,39 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
 
       {/* Meta */}
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, color: '#7a6244', display: 'flex', flexWrap: 'wrap', gap: '4px 20px', marginBottom: 4 }}>
-        {song.key_signature && <span><b style={{ color: '#8A5A2B' }}>Tonalite : </b>{song.key_signature}{semitones !== 0 ? ` (${semitones > 0 ? '+' : ''}${semitones})` : ''}</span>}
-        {song.tempo         && <span><b style={{ color: '#8A5A2B' }}>Tempo : </b>{song.tempo} bpm</span>}
+        {song.key_signature  && <span><b style={{ color: '#8A5A2B' }}>Tonalite : </b>{song.key_signature}{semitones !== 0 ? ` (${semitones > 0 ? '+' : ''}${semitones})` : ''}</span>}
+        {song.tempo          && <span><b style={{ color: '#8A5A2B' }}>Tempo : </b>{song.tempo} bpm</span>}
         {song.time_signature && <span><b style={{ color: '#8A5A2B' }}>Mesure : </b>{song.time_signature}</span>}
-        {song.author        && <span><b style={{ color: '#8A5A2B' }}>Source : </b>{song.author}</span>}
+        {song.author         && <span><b style={{ color: '#8A5A2B' }}>Source : </b>{song.author}</span>}
       </div>
       <div style={{ height: 1, background: 'linear-gradient(90deg,#B87333,transparent)', margin: '6px 0 18px' }} />
 
-      {/* Two-column body */}
-      <div ref={bodyRef} style={bodyStyle}>
-        {displayed.sections.map((section, si) => (
-          <div key={si} style={sectionStyle}>
-            {/* Badge + first few lines kept together */}
-            {section.label && (
-              <div style={labelBlockStyle}>
-                <div style={{ breakInside: 'avoid' }}>
-                  <span style={{ ...BADGE_BASE, ...sectionBadge(section.label) }}>
-                    {section.label}
-                  </span>
-                </div>
-              </div>
-            )}
-            {section.lines.map((line, li) => {
-              // Empty line
-              if (!line.hasChords && line.tokens.every(t => !t.lyric.trim())) {
-                return <div key={li} style={{ ...lyricLineStyle, lineHeight: 1 }}>&nbsp;</div>
-              }
-              // Plain line
-              if (!line.hasChords) {
-                return (
-                  <div key={li} style={lyricLineStyle}>
-                    <span style={{ whiteSpace: 'pre', fontFamily: "'Spectral', Georgia, serif", color: '#3C2410', fontWeight: 500 }}>
-                      {line.tokens.map(t => t.lyric).join('')}
-                    </span>
-                  </div>
-                )
-              }
-              // Line with chords — each line is atomic (no column-break inside)
-              return (
-                <div key={li} style={lyricLineStyle}>
-                  {line.tokens.map((token, ti) => {
-                    if (!token.chord) {
-                      return token.lyric
-                        ? <span key={ti} style={{ whiteSpace: 'pre', fontFamily: "'Spectral', Georgia, serif", color: '#3C2410', fontWeight: 500 }}>{token.lyric}</span>
-                        : null
-                    }
-                    return (
-                      <span key={ti} data-syl style={SYL_BASE}>
-                        <span data-crd style={CRD_STYLE}>{token.chord}</span>
-                        {token.lyric === '' ? ' ' : token.lyric}
-                      </span>
-                    )
-                  })}
-                </div>
-              )
-            })}
+      {/* Body — desktop: 2 logical columns, mobile: 1 column */}
+      <div ref={bodyRef}>
+        {/* Desktop: grid with two hand-split columns */}
+        <div className="hidden sm:grid" style={{
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+          gap: '0 48px',
+          alignItems: 'start',
+        }}>
+          {/* Left column */}
+          <div style={{ minWidth: 0 }}>
+            {leftSections.map((s, i) => renderSection(s, i, fontSize))}
           </div>
-        ))}
+          {/* Vertical divider */}
+          <div style={{ display: 'contents' }}>
+            {/* divider rendered via border-left on right column */}
+          </div>
+          {/* Right column */}
+          <div style={{ minWidth: 0, borderLeft: '1px solid #D9C49B', paddingLeft: 24 }}>
+            {rightSections.map((s, i) => renderSection(s, half + i, fontSize))}
+          </div>
+        </div>
+
+        {/* Mobile: single column */}
+        <div className="sm:hidden">
+          {sections.map((s, i) => renderSection(s, i, fontSize))}
+        </div>
       </div>
 
       {song.notes && (
