@@ -21,8 +21,8 @@ async function getCallerProfile(request: NextRequest) {
   )
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  return profile as { role: 'admin' | 'leader' | 'member' } | null
+  const { data: profile } = await supabase.from("profiles").select("id, role").eq("id", user.id).single()
+  return profile as { id: string; role: 'admin' | 'leader' | 'member' } | null
 }
 
 // POST — create user — admin only
@@ -92,17 +92,36 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-// DELETE — admin only
+// DELETE — admin or leader (leader can only delete members, not admins/leaders/self)
 export async function DELETE(request: NextRequest) {
   const caller = await getCallerProfile(request)
-  if (caller?.role !== "admin") {
+  if (!caller || (caller.role !== "admin" && caller.role !== "leader")) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
   }
 
   const { id } = await request.json()
-  const admin = createAdminClient()
 
-  const { error } = await admin.auth.admin.deleteUser(id)
+  // Fetch the target profile role to enforce restrictions
+  const adminClient = createAdminClient()
+  const { data: targetProfile } = await adminClient
+    .from("profiles")
+    .select("role")
+    .eq("id", id)
+    .single()
+
+  const targetRole = targetProfile?.role as 'admin' | 'leader' | 'member' | undefined
+
+  // Leaders cannot delete admins, other leaders, or themselves
+  if (caller.role === "leader") {
+    if (caller.id === id || targetRole === "admin" || targetRole === "leader") {
+      return NextResponse.json({ error: "Vous n'avez pas la permission de supprimer ce compte." }, { status: 403 })
+    }
+  }
+
+  // Even admins are protected: block deleting admins/leaders as extra safety (optional — remove if admins should be deletable)
+  // Admins retain full access, so no additional restriction here.
+
+  const { error } = await adminClient.auth.admin.deleteUser(id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }

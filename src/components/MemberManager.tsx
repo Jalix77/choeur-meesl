@@ -210,6 +210,8 @@ function PhotoModal({ profileId, profileName, currentUrl, onSaved, onClose }: Ph
 // ── Main component ────────────────────────────────────────────────────────────
 export default function MemberManager({ profiles: initialProfiles, currentUserId, callerRole }: Props) {
   const isCallerAdmin = callerRole === 'admin'
+  const isCallerLeader = callerRole === 'leader'
+  const canManageMembers = isCallerAdmin || isCallerLeader
   const router = useRouter()
   const [profiles, setProfiles] = useState(initialProfiles)
 
@@ -278,8 +280,8 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
   }
 
   // ── Delete ──────────────────────────────────────────────────────────────────
-  async function handleDelete(id: string) {
-    if (!confirm('Supprimer définitivement ce compte ?')) return
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Êtes-vous certain de vouloir supprimer ce membre ?\n\n« ${name} »`)) return
     const res = await fetch('/api/admin/users', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -487,16 +489,16 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                 {p.avatar_url ? '🖼 Photo' : '📷 Photo'}
               </button>
               {isCallerAdmin && p.id !== currentUserId && (
-                <>
-                  <button onClick={() => handleToggleActive(p.id, p.active)}
-                    className="flex-1 min-w-[80px] text-xs border border-[#B87333]/40 text-[#B87333] px-3 py-2 rounded-lg hover:bg-[#B87333]/10 transition-colors text-center">
-                    {p.active ? 'Désactiver' : 'Activer'}
-                  </button>
-                  <button onClick={() => handleDelete(p.id)}
-                    className="flex-1 min-w-[80px] text-xs border border-red-300 text-red-500 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors text-center">
-                    🗑 Supprimer
-                  </button>
-                </>
+                <button onClick={() => handleToggleActive(p.id, p.active)}
+                  className="flex-1 min-w-[80px] text-xs border border-[#B87333]/40 text-[#B87333] px-3 py-2 rounded-lg hover:bg-[#B87333]/10 transition-colors text-center">
+                  {p.active ? 'Désactiver' : 'Activer'}
+                </button>
+              )}
+              {canManageMembers && p.id !== currentUserId && p.role === 'member' && (
+                <button onClick={() => handleDelete(p.id, p.full_name)}
+                  className="flex-1 min-w-[80px] text-xs border border-red-300 text-red-500 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors text-center">
+                  🗑 Supprimer
+                </button>
               )}
             </div>
           </div>
@@ -561,14 +563,14 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
                           : 'border-[#E2B36A]/60 text-[#B87333]/60 hover:bg-[#E2B36A]/20'
                       }`}>{p.avatar_url ? '🖼' : '📷'}</button>
                     {isCallerAdmin && p.id !== currentUserId && (
-                      <>
-                        <button onClick={() => handleToggleActive(p.id, p.active)}
-                          className="text-xs border border-[#B87333]/40 text-[#B87333] px-2 py-1.5 rounded-lg hover:bg-[#B87333]/10 transition-colors">
-                          {p.active ? 'Désactiver' : 'Activer'}
-                        </button>
-                        <button onClick={() => handleDelete(p.id)}
-                          className="text-xs border border-red-300 text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Supprimer</button>
-                      </>
+                      <button onClick={() => handleToggleActive(p.id, p.active)}
+                        className="text-xs border border-[#B87333]/40 text-[#B87333] px-2 py-1.5 rounded-lg hover:bg-[#B87333]/10 transition-colors">
+                        {p.active ? 'Désactiver' : 'Activer'}
+                      </button>
+                    )}
+                    {canManageMembers && p.id !== currentUserId && p.role === 'member' && (
+                      <button onClick={() => handleDelete(p.id, p.full_name)}
+                        className="text-xs border border-red-300 text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Supprimer</button>
                     )}
                   </div>
                 </td>
