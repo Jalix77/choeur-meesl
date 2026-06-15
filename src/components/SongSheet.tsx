@@ -83,33 +83,39 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
 
   const bodyStyle: React.CSSProperties = {
     fontSize,
-    columnCount: isMobile ? 1 : 2,
-    columnGap: '42px',
-    columnRuleWidth: isMobile ? 0 : 1,
-    columnRuleStyle: 'solid',
-    columnRuleColor: '#D9C49B',
+    display: 'grid',
+    gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+    gap: isMobile ? '0' : '0 42px',
+    alignItems: 'start',
     overflowX: 'hidden',
     wordBreak: 'break-word',
   }
 
-  // A lyric line (with or without chords) must not split across columns
+  // Each lyric line is atomic — never split
   const lyricLineStyle: React.CSSProperties = {
     margin: '0 0 3px',
     lineHeight: 2.55,
     fontFamily: "'Spectral', Georgia, serif",
     color: '#3C2410',
     breakInside: 'avoid',
+    pageBreakInside: 'avoid',
+    overflow: 'visible',
+    whiteSpace: 'normal',
   }
 
-  // Section wrapper: NO breakInside avoid — sections CAN split so content fills both columns
+  // Each section stays together as a grid item — never split across columns
   const sectionStyle: React.CSSProperties = {
     marginBottom: 18,
+    breakInside: 'avoid',
+    pageBreakInside: 'avoid',
+    overflow: 'visible',
   }
 
-  // Label row (badge + following lines) should stay together
+  // Label row stays with its first line
   const labelBlockStyle: React.CSSProperties = {
     breakInside: 'avoid',
-    display: 'inline-block',
+    pageBreakInside: 'avoid',
+    display: 'block',
     width: '100%',
   }
 
