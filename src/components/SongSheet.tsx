@@ -72,49 +72,28 @@ export default function SongSheet({ song, initialTranspose = 0, printMode = fals
     })
   })
 
-  // Two-column body on desktop, single column on mobile (JS-driven, so we use window.innerWidth)
-  const [isMobile, setIsMobile] = useState(false)
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-
   const bodyStyle: React.CSSProperties = {
     fontSize,
-    display: 'grid',
-    gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-    gap: isMobile ? '0' : '0 42px',
-    alignItems: 'start',
+    maxWidth: 900,
+    margin: '0 auto',
     overflowX: 'hidden',
     wordBreak: 'break-word',
   }
 
-  // Each lyric line is atomic — never split
   const lyricLineStyle: React.CSSProperties = {
     margin: '0 0 3px',
     lineHeight: 2.55,
     fontFamily: "'Spectral', Georgia, serif",
     color: '#3C2410',
-    breakInside: 'avoid',
-    pageBreakInside: 'avoid',
     overflow: 'visible',
     whiteSpace: 'normal',
   }
 
-  // Each section stays together as a grid item — never split across columns
   const sectionStyle: React.CSSProperties = {
     marginBottom: 18,
-    breakInside: 'avoid',
-    pageBreakInside: 'avoid',
-    overflow: 'visible',
   }
 
-  // Label row stays with its first line
   const labelBlockStyle: React.CSSProperties = {
-    breakInside: 'avoid',
-    pageBreakInside: 'avoid',
     display: 'block',
     width: '100%',
   }
