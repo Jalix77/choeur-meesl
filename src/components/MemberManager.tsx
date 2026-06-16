@@ -1,11 +1,24 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import type { Profile, Role } from '@/lib/database.types'
 import { formatBirthdayDisplay } from '@/lib/database.types'
 import { ROLE_OPTIONS, ROLE_LABELS } from '@/lib/roles'
+
+type QuickFilter = 'all' | 'active' | 'member' | 'leader' | 'admin' | 'with_photo' | 'no_photo' | 'birthday_month'
+
+const QUICK_FILTERS: { key: QuickFilter; label: string }[] = [
+  { key: 'all',            label: 'Tous' },
+  { key: 'active',         label: 'Actifs' },
+  { key: 'member',         label: 'Membres' },
+  { key: 'leader',         label: 'Leaders' },
+  { key: 'admin',          label: 'Admins' },
+  { key: 'with_photo',     label: 'Avec photo' },
+  { key: 'no_photo',       label: 'Sans photo' },
+  { key: 'birthday_month', label: 'Anniversaire ce mois' },
+]
 
 interface Props {
   profiles: Profile[]
@@ -230,7 +243,58 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
   // Photo modal
   const [photoProfile, setPhotoProfile] = useState<Profile | null>(null)
 
+  // Search & filters
+  const [search, setSearch]           = useState('')
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
+
   function setField(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
+
+  // ── Statistics ──────────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const currentMonth = new Date().getMonth()
+    return {
+      total:          profiles.length,
+      active:         profiles.filter(p => p.active).length,
+      leaders:        profiles.filter(p => p.role === 'leader').length,
+      admins:         profiles.filter(p => p.role === 'admin').length,
+      withBirthday:   profiles.filter(p => !!p.date_naissance).length,
+      withPhoto:      profiles.filter(p => !!p.avatar_url).length,
+    }
+  }, [profiles])
+
+  // ── Filtered list ───────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const currentMonth = new Date().getMonth()
+    const q = search.toLowerCase().trim()
+
+    return profiles.filter(p => {
+      // Quick filter
+      if (quickFilter === 'active'         && !p.active)           return false
+      if (quickFilter === 'member'         && p.role !== 'member') return false
+      if (quickFilter === 'leader'         && p.role !== 'leader') return false
+      if (quickFilter === 'admin'          && p.role !== 'admin')  return false
+      if (quickFilter === 'with_photo'     && !p.avatar_url)       return false
+      if (quickFilter === 'no_photo'       && p.avatar_url)        return false
+      if (quickFilter === 'birthday_month') {
+        if (!p.date_naissance) return false
+        const month = parseInt(p.date_naissance.split('-')[1], 10) - 1
+        if (month !== currentMonth) return false
+      }
+
+      // Text search
+      if (!q) return true
+      const roleLabel = ROLE_LABELS[p.role]?.toLowerCase() ?? ''
+      const status = p.active ? 'actif' : 'désactivé'
+      const birthday = p.date_naissance ? formatBirthdayDisplay(p.date_naissance).toLowerCase() : ''
+      return (
+        p.full_name.toLowerCase().includes(q) ||
+        (p.phone ?? '').toLowerCase().includes(q) ||
+        roleLabel.includes(q) ||
+        status.includes(q) ||
+        birthday.includes(q)
+      )
+    })
+  }, [profiles, search, quickFilter])
 
   // ── Create ──────────────────────────────────────────────────────────────────
   async function handleCreate(e: React.FormEvent) {
@@ -324,6 +388,59 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
 
   return (
     <div className="space-y-4">
+
+      {/* ── Statistics bar ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {[
+          { label: 'Total',        value: stats.total },
+          { label: 'Actifs',       value: stats.active },
+          { label: 'Leaders',      value: stats.leaders },
+          { label: 'Admins',       value: stats.admins },
+          { label: 'Anniversaires',value: stats.withBirthday },
+          { label: 'Photos',       value: stats.withPhoto },
+        ].map(s => (
+          <div key={s.label} className="bg-white/70 border border-[#E2B36A]/40 rounded-xl px-3 py-2 text-center shadow-sm">
+            <p className="text-lg font-bold text-[#5A3318] leading-tight">{s.value}</p>
+            <p className="text-[10px] font-cinzel uppercase tracking-wider text-[#B87333] mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Search bar ────────────────────────────────────────────────────── */}
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B87333]/60 text-sm pointer-events-none">🔍</span>
+        <input
+          type="search"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher par nom, téléphone, rôle, anniversaire…"
+          className="w-full pl-9 pr-4 py-2.5 border border-[#E2B36A]/60 rounded-xl bg-[#FBF6EC] text-[#5A3318] text-sm placeholder:text-[#B87333]/40 focus:outline-none focus:ring-2 focus:ring-[#B87333]/40"
+        />
+      </div>
+
+      {/* ── Quick filters ─────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_FILTERS.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setQuickFilter(f.key)}
+            className={`text-xs px-3 py-1.5 rounded-full font-cinzel transition-colors border ${
+              quickFilter === f.key
+                ? 'bg-[#5A3318] text-white border-[#5A3318]'
+                : 'bg-white/60 text-[#5A3318] border-[#E2B36A]/50 hover:bg-[#E2B36A]/20'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Result count ──────────────────────────────────────────────────── */}
+      <p className="text-xs text-[#B87333] font-semibold">
+        {filtered.length === 0
+          ? 'Aucun membre trouvé.'
+          : `${filtered.length} membre${filtered.length > 1 ? 's' : ''} trouvé${filtered.length > 1 ? 's' : ''}`}
+      </p>
 
       {/* ── Photo modal ───────────────────────────────────────────────────── */}
       {photoProfile && (
@@ -440,7 +557,10 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
 
       {/* ── Mobile: carte par membre (< md) ──────────────────────────────── */}
       <div className="md:hidden space-y-3">
-        {profiles.map(p => (
+        {filtered.length === 0 && (
+          <p className="text-center text-sm text-[#B87333]/60 py-8">Aucun membre trouvé.</p>
+        )}
+        {filtered.map(p => (
           <div key={p.id} className="bg-white/80 border border-[#E2B36A]/40 rounded-xl p-4 shadow-sm">
             {/* Header: avatar + nom + statut */}
             <div className="flex items-center gap-3 mb-3">
@@ -520,7 +640,12 @@ export default function MemberManager({ profiles: initialProfiles, currentUserId
             </tr>
           </thead>
           <tbody>
-            {profiles.map((p, i) => (
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center text-sm text-[#B87333]/60 py-10">Aucun membre trouvé.</td>
+              </tr>
+            )}
+            {filtered.map((p, i) => (
               <tr key={p.id} className={`border-t border-[#E2B36A]/30 ${i % 2 === 0 ? '' : 'bg-[#FBF6EC]/40'}`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
