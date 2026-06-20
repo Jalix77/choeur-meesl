@@ -9,17 +9,18 @@ import { buildWhatsAppMessage, cleanHaitianPhone } from '@/lib/whatsapp'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://choeur-meesl.vercel.app'
 
-function whatsappLink(phone: string, name: string, rehearsalDate: string, location: string | null) {
+function whatsappLink(
+  phone: string,
+  name: string,
+  vocal_role: string,
+  rehearsalDate: string,
+  location: string | null,
+  notes: string | null,
+  songs: { title: string; order_index: number }[],
+) {
   const cleaned = cleanHaitianPhone(phone)
   if (!cleaned) return '#'
-  const text = buildWhatsAppMessage({
-    name,
-    vocal_role: 'Service',
-    starts_at: rehearsalDate,
-    location,
-    notes: null,
-    songs: [],
-  })
+  const text = buildWhatsAppMessage({ name, vocal_role, starts_at: rehearsalDate, location, notes, songs })
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`
 }
 
@@ -89,57 +90,77 @@ export default async function PlanningPage() {
           const rehearsalChoristers = allChoristers.filter(rc => rc.rehearsal_id === rehearsal.id) as
             (RehearsalChorister & { profiles?: { id: string; full_name: string; phone?: string | null } })[]
 
+          // Songs formatted for WhatsApp links
+          const songsForWA = songList.map((rs: { order_index: number; songs: { id: string; title: string } }) => ({
+            title: rs.songs?.title ?? '',
+            order_index: rs.order_index,
+          }))
+
           return (
-            <div key={rehearsal.id} className={`bg-white/60 border rounded-xl p-4 sm:p-5 shadow-sm ${isPast ? 'opacity-60 border-[#E2B36A]/20' : 'border-[#E2B36A]/50'}`}>
-              <div className="flex items-start justify-between gap-2 sm:gap-3">
-                <div>
-                  {rehearsal.title && (
-                    <p className="font-cinzel text-xs font-semibold text-[#9C3D6E] uppercase tracking-wider mb-0.5">{rehearsal.title}</p>
+            <div key={rehearsal.id} className={`bg-white/60 border rounded-xl shadow-sm overflow-hidden ${isPast ? 'opacity-60 border-[#E2B36A]/20' : 'border-[#E2B36A]/50'}`}>
+
+              {/* ── En-tête : date / heure / lieu ───────────────────────────── */}
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-2 sm:gap-3">
+                  <div>
+                    {rehearsal.title && (
+                      <p className="font-cinzel text-xs font-semibold text-[#9C3D6E] uppercase tracking-wider mb-0.5">{rehearsal.title}</p>
+                    )}
+                    <p className="font-cinzel font-bold text-[#5A3318] capitalize">{formatRehearsalDate(rehearsal.starts_at)}</p>
+                    <p className="text-[#B87333] text-sm font-semibold">à {formatRehearsalTime(rehearsal.starts_at)}</p>
+                    {rehearsal.location && <p className="text-sm text-[#5A3318] mt-1">📍 {rehearsal.location}</p>}
+                  </div>
+                  {isAdmin && (
+                    <RehearsalManager
+                      rehearsal={rehearsal}
+                      songs={allSongs ?? []}
+                      choristers={choristers}
+                      initialChoristers={rehearsalChoristers}
+                      editMode
+                    />
                   )}
-                  <p className="font-cinzel font-bold text-[#5A3318] capitalize">{formatRehearsalDate(rehearsal.starts_at)}</p>
-                  <p className="text-[#B87333] text-sm">à {formatRehearsalTime(rehearsal.starts_at)}</p>
-                  {rehearsal.location && <p className="text-sm text-[#5A3318] mt-1">📍 {rehearsal.location}</p>}
                 </div>
-                {isAdmin && (
-                  <RehearsalManager
-                    rehearsal={rehearsal}
-                    songs={allSongs ?? []}
-                    choristers={choristers}
-                    initialChoristers={rehearsalChoristers}
-                    editMode
-                  />
-                )}
+                {rehearsal.notes && <p className="text-xs text-[#7A4A20] italic mt-2">{rehearsal.notes}</p>}
               </div>
 
-              {rehearsal.notes && <p className="text-xs text-[#7A4A20] italic mt-2">{rehearsal.notes}</p>}
-
-              {songList.length > 0 && (
-                <div className="mt-3 border-t border-[#E2B36A]/30 pt-3">
-                  <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide mb-1">Chants</p>
-                  <ol className="space-y-0.5">
+              {/* ── 🎵 Chants prévus ────────────────────────────────────────── */}
+              <div className="border-t border-[#E2B36A]/30 px-4 sm:px-5 py-3 bg-[#FBF6EC]/40">
+                <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <span>🎵</span> Chants prévus
+                </p>
+                {songList.length > 0 ? (
+                  <ol className="space-y-1">
                     {songList.map((rs: { songs: { id: string; title: string } }, i: number) => (
-                      <li key={i} className="text-sm text-[#5A3318]">
-                        {i + 1}. <Link href={`/chants/${rs.songs?.id}`} className="hover:underline hover:text-[#B87333]">{rs.songs?.title}</Link>
+                      <li key={i} className="flex items-baseline gap-2 text-sm text-[#5A3318]">
+                        <span className="text-[#B87333]/60 font-mono text-xs w-5 flex-shrink-0 text-right">{i + 1}.</span>
+                        <Link
+                          href={`/chants/${rs.songs?.id}`}
+                          className="hover:underline hover:text-[#B87333] transition-colors leading-snug"
+                        >
+                          {rs.songs?.title}
+                        </Link>
                       </li>
                     ))}
                   </ol>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-[#B87333]/50 italic">Aucun chant sélectionné pour cette répétition.</p>
+                )}
+              </div>
 
-              {isAdmin && rehearsalChoristers.length > 0 && (
-                <div className="mt-3">
-                  <NotifyButton
-                    rehearsalId={rehearsal.id}
-                    choristerCount={rehearsalChoristers.length}
-                  />
-                </div>
-              )}
-
+              {/* ── 👥 Choristes en service ──────────────────────────────────── */}
               {rehearsalChoristers.length > 0 && (
-                <div className="mt-3 border-t border-[#E2B36A]/30 pt-3">
-                  <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide mb-2">
-                    Choristes en service ({rehearsalChoristers.length})
-                  </p>
+                <div className="border-t border-[#E2B36A]/30 px-4 sm:px-5 py-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide flex items-center gap-1.5">
+                      <span>👥</span> Choristes en service ({rehearsalChoristers.length})
+                    </p>
+                    {isAdmin && (
+                      <NotifyButton
+                        rehearsalId={rehearsal.id}
+                        choristerCount={rehearsalChoristers.length}
+                      />
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {rehearsalChoristers.map((rc) => {
                       const p = rc.profiles
@@ -155,7 +176,15 @@ export default async function PlanningPage() {
                           </div>
                           {phone && (
                             <a
-                              href={whatsappLink(phone, p?.full_name ?? '', rehearsal.starts_at, rehearsal.location)}
+                              href={whatsappLink(
+                                phone,
+                                p?.full_name ?? '',
+                                rc.vocal_role,
+                                rehearsal.starts_at,
+                                rehearsal.location,
+                                rehearsal.notes,
+                                songsForWA,
+                              )}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-green-600 hover:text-green-700 ml-1"
