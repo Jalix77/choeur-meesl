@@ -35,7 +35,7 @@ export default async function EditSongPage({ params }: { params: Promise<{ id: s
 
       {/* Audio / Playback */}
       <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl p-5 shadow-sm">
-        <FileManager songId={id} files={(files ?? []) as SongFile[]} />
+        <FileManager songId={id} files={(files ?? []) as SongFile[]} userRole={profile?.role ?? null} />
       </div>
     </div>
   )
