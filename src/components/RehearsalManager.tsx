@@ -100,21 +100,31 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
       // Songs
       await supabase.from('rehearsal_songs').delete().eq('rehearsal_id', rehearsalId)
       if (selectedSongs.length > 0) {
-        await supabase.from('rehearsal_songs').insert(
+        const { error: songsErr } = await supabase.from('rehearsal_songs').insert(
           selectedSongs.map((sid, i) => ({ rehearsal_id: rehearsalId!, song_id: sid, order_index: i }))
         )
+        if (songsErr) {
+          setError(`Erreur chants : ${songsErr.message} (code: ${songsErr.code})`)
+          setLoading(false)
+          return
+        }
       }
 
       // Choristers
       await supabase.from('rehearsal_choristers').delete().eq('rehearsal_id', rehearsalId)
       if (selectedChoristers.length > 0) {
-        await supabase.from('rehearsal_choristers').insert(
+        const { error: choristersErr } = await supabase.from('rehearsal_choristers').insert(
           selectedChoristers.map(c => ({
             rehearsal_id: rehearsalId!,
             profile_id: c.profile_id,
             vocal_role: c.vocal_role,
           }))
         )
+        if (choristersErr) {
+          setError(`Erreur choristes : ${choristersErr.message} (code: ${choristersErr.code})`)
+          setLoading(false)
+          return
+        }
       }
 
       // Email notifications
