@@ -39,16 +39,14 @@ export interface NotificationResult {
   channel: 'email' | 'whatsapp'
 }
 
-// ─── Formatters ────────────────────────────────────────────────────────────────
+import { formatRehearsalDate, formatRehearsalTime } from '@/lib/rehearsal-time'
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://choeur-meesl.vercel.app'
+
+// ─── Formatters (fuseau America/Port-au-Prince) ────────────────────────────────
+
+function fmtDate(iso: string) { return formatRehearsalDate(iso) }
+function fmtTime(iso: string) { return formatRehearsalTime(iso) }
 
 // ─── Payload builder (reusable for WhatsApp / other channels) ─────────────────
 
@@ -86,6 +84,8 @@ export function buildNotificationPayload(data: RehearsalNotificationData) {
     '',
     '─────────────────────────────────────────',
     'Merci de confirmer votre disponibilité auprès du responsable du chœur.',
+    '',
+    `Voir le planning : ${APP_URL}/planning`,
     '',
     'Mission Église Évangélique Sel et Lumière',
     'Chœur de Louange · 4, Delmas 48 · Port-au-Prince, Haïti',
@@ -175,8 +175,14 @@ export function buildNotificationPayload(data: RehearsalNotificationData) {
           .join('')}
       </table>` : ''}
 
-      <p style="margin:0;font-size:13px;color:#7A4A20;line-height:1.7;border-top:1px solid #E2B36A;padding-top:20px;">
+      <p style="margin:0 0 16px;font-size:13px;color:#7A4A20;line-height:1.7;border-top:1px solid #E2B36A;padding-top:20px;">
         Merci de confirmer votre disponibilité auprès du responsable du chœur.
+      </p>
+      <p style="margin:0;">
+        <a href="${APP_URL}/planning"
+           style="display:inline-block;background:#B87333;color:#fff;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;text-decoration:none;">
+          📅 Voir le planning
+        </a>
       </p>
     </td>
   </tr>

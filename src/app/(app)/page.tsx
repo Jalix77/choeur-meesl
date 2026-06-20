@@ -5,15 +5,7 @@ import {
   isBirthdayToday, isBirthdayThisWeek, isBirthdayThisMonth,
   formatBirthdayDisplay, daysUntilBirthday,
 } from '@/lib/database.types'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+import { formatRehearsalDate, formatRehearsalTime } from '@/lib/rehearsal-time'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -65,8 +57,8 @@ export default async function DashboardPage() {
           </h2>
           {nextRehearsal ? (
             <div className="space-y-2">
-              <p className="text-[#5A3318] font-semibold capitalize">{formatDate(nextRehearsal.starts_at)}</p>
-              <p className="text-[#B87333] text-sm">à {formatTime(nextRehearsal.starts_at)}</p>
+              <p className="text-[#5A3318] font-semibold capitalize">{formatRehearsalDate(nextRehearsal.starts_at)}</p>
+              <p className="text-[#B87333] text-sm">à {formatRehearsalTime(nextRehearsal.starts_at)}</p>
               {nextRehearsal.location && (
                 <p className="text-sm text-[#5A3318]">📍 {nextRehearsal.location}</p>
               )}

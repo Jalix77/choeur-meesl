@@ -19,14 +19,12 @@ export interface WhatsAppLink {
   missingPhone: boolean
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+import { formatRehearsalDate, formatRehearsalTime } from '@/lib/rehearsal-time'
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://choeur-meesl.vercel.app'
+
+function fmtDate(iso: string) { return formatRehearsalDate(iso) }
+function fmtTime(iso: string) { return formatRehearsalTime(iso) }
 
 /** Clean a phone number to digits only (keeps leading +) */
 export function cleanPhone(phone: string): string {
@@ -118,7 +116,12 @@ export function buildWhatsAppMessage(opts: {
   if (notes) {
     lines.push(`Notes : ${notes}`)
   }
-  lines.push('', 'Merci de confirmer votre disponibilité.')
+  lines.push(
+    '',
+    'Merci de confirmer votre disponibilité.',
+    '',
+    `🔗 Voir le planning : ${APP_URL}/planning`,
+  )
 
   return lines.join('\n')
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VOCAL_ROLES, type VocalRole, type RehearsalChorister } from '@/lib/database.types'
 import { buildWhatsAppLinks, type WhatsAppLink } from '@/lib/whatsapp'
+import { haitiInputToISO, isoToHaitiInput } from '@/lib/rehearsal-time'
 
 interface Song { id: string; title: string }
 interface ChoristerProfile { id: string; full_name: string; email?: string | null; phone?: string | null }
@@ -39,7 +40,7 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
   // Form fields
   const [form, setForm] = useState({
     title: rehearsal?.title ?? '',
-    starts_at: rehearsal?.starts_at?.slice(0, 16) ?? '',
+    starts_at: rehearsal?.starts_at ? isoToHaitiInput(rehearsal.starts_at) : '',
     location: rehearsal?.location ?? '',
     notes: rehearsal?.notes ?? '',
     notify_email: rehearsal?.notify_selected ?? false,
@@ -78,7 +79,7 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
 
     const payload = {
       title: form.title || null,
-      starts_at: new Date(form.starts_at).toISOString(),
+      starts_at: haitiInputToISO(form.starts_at),
       location: form.location || null,
       notes: form.notes || null,
       notify_selected: form.notify_email,

@@ -82,7 +82,7 @@ export default async function SongPage({ params, searchParams }: {
       {/* Audio upload — admin only, always shown so they can add files */}
       {isAdmin && (
         <div className="bg-white/60 border border-[#E2B36A]/40 rounded-xl p-5 shadow-sm">
-          <FileManager songId={id} files={(songFiles ?? []) as SongFile[]} />
+          <FileManager songId={id} files={(songFiles ?? []) as SongFile[]} userRole={profile?.role ?? null} />
         </div>
       )}
     </div>

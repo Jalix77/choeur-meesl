@@ -4,20 +4,22 @@ import RehearsalManager from '@/components/RehearsalManager'
 import NotifyButton from '@/components/NotifyButton'
 import type { Profile, RehearsalChorister } from '@/lib/database.types'
 import { canManageContent } from '@/lib/roles'
+import { formatRehearsalDate, formatRehearsalTime } from '@/lib/rehearsal-time'
+import { buildWhatsAppMessage, cleanHaitianPhone } from '@/lib/whatsapp'
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-}
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://choeur-meesl.vercel.app'
 
 function whatsappLink(phone: string, name: string, rehearsalDate: string, location: string | null) {
-  const date = new Date(rehearsalDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-  const time = new Date(rehearsalDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  const loc = location ? ` à ${location}` : ''
-  const text = `Bonjour ${name}, vous êtes en service pour la répétition du Chœur MEESL le ${date} à ${time}${loc}. Merci !`
-  const cleaned = phone.replace(/\D/g, '')
+  const cleaned = cleanHaitianPhone(phone)
+  if (!cleaned) return '#'
+  const text = buildWhatsAppMessage({
+    name,
+    vocal_role: 'Service',
+    starts_at: rehearsalDate,
+    location,
+    notes: null,
+    songs: [],
+  })
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`
 }
 
@@ -94,8 +96,8 @@ export default async function PlanningPage() {
                   {rehearsal.title && (
                     <p className="font-cinzel text-xs font-semibold text-[#9C3D6E] uppercase tracking-wider mb-0.5">{rehearsal.title}</p>
                   )}
-                  <p className="font-cinzel font-bold text-[#5A3318] capitalize">{formatDate(rehearsal.starts_at)}</p>
-                  <p className="text-[#B87333] text-sm">à {formatTime(rehearsal.starts_at)}</p>
+                  <p className="font-cinzel font-bold text-[#5A3318] capitalize">{formatRehearsalDate(rehearsal.starts_at)}</p>
+                  <p className="text-[#B87333] text-sm">à {formatRehearsalTime(rehearsal.starts_at)}</p>
                   {rehearsal.location && <p className="text-sm text-[#5A3318] mt-1">📍 {rehearsal.location}</p>}
                 </div>
                 {isAdmin && (

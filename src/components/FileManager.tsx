@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 interface FileManagerProps {
   songId: string
   files: SongFile[]
+  userRole?: string | null
 }
 
 const LABEL_PRESETS = [
@@ -29,8 +30,8 @@ const KIND_OPTIONS = [
   { value: 'sheet',    label: '📄 Partition' },
 ]
 
-const ACCEPT = 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a,audio/ogg,audio/webm'
-const MAX_BYTES = 50 * 1024 * 1024  // 50 MB
+const ACCEPT = 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-m4a,audio/mp4,audio/m4a'
+const MAX_BYTES = 20 * 1024 * 1024  // 20 MB
 
 function formatBytes(n: number | null | undefined): string {
   if (!n) return ''
@@ -43,21 +44,50 @@ function safeName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9.\-_]/g, '_')
 }
 
-export default function FileManager({ songId, files: initialFiles }: FileManagerProps) {
-  const router  = useRouter()
+function formatSupabaseError(err: { message?: string; details?: string; hint?: string; code?: string }): string {
+  const parts: string[] = []
+  if (err.message) parts.push(err.message)
+  if (err.details) parts.push(`Détails : ${err.details}`)
+  if (err.hint)    parts.push(`Aide : ${err.hint}`)
+  if (err.code)    parts.push(`Code : ${err.code}`)
+  return parts.join(' — ')
+}
+
+export default function FileManager({ songId, files: initialFiles, userRole }: FileManagerProps) {
+  const router   = useRouter()
   const supabase = createClient()
   const fileRef  = useRef<HTMLInputElement>(null)
 
-  const [files,     setFiles]     = useState<SongFile[]>(initialFiles)
-  const [label,     setLabel]     = useState('')
-  const [customLabel, setCustom]  = useState('')
-  const [kind,      setKind]      = useState<'audio' | 'playback' | 'sheet'>('audio')
-  const [uploading, setUploading] = useState(false)
-  const [progress,  setProgress]  = useState<string>('')
-  const [success,   setSuccess]   = useState('')
-  const [error,     setError]     = useState('')
+  const [files,       setFiles]       = useState<SongFile[]>(initialFiles)
+  const [label,       setLabel]       = useState('')
+  const [customLabel, setCustom]      = useState('')
+  const [kind,        setKind]        = useState<'audio' | 'playback' | 'sheet'>('audio')
+  const [uploading,   setUploading]   = useState(false)
+  const [progress,    setProgress]    = useState(0)          // 0–100
+  const [progressMsg, setProgressMsg] = useState('')
+  const [success,     setSuccess]     = useState('')
+  const [error,       setError]       = useState('')
+  const [replacing,   setReplacing]   = useState<SongFile | null>(null)
 
   const effectiveLabel = label === '__custom__' ? customLabel : label
+  const canManage = userRole === 'admin' || userRole === 'leader'
+
+  function startReplace(file: SongFile) {
+    setReplacing(file)
+    setLabel(file.label)
+    setCustom('')
+    setKind(file.kind as 'audio' | 'playback' | 'sheet')
+    setError('')
+    setSuccess('')
+    fileRef.current?.click()
+  }
+
+  function cancelReplace() {
+    setReplacing(null)
+    setLabel('')
+    setCustom('')
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault()
@@ -65,75 +95,138 @@ export default function FileManager({ songId, files: initialFiles }: FileManager
     if (!file) return
     if (!effectiveLabel.trim()) { setError('Veuillez saisir un label.'); return }
 
-    // Client-side size guard
+    if (!canManage) {
+      setError('Permission refusée : vous devez être Admin ou Leader pour uploader des fichiers.')
+      return
+    }
+
     if (file.size > MAX_BYTES) {
-      setError(`Fichier trop volumineux. Maximum : 50 Mo (fichier : ${formatBytes(file.size)}).`)
+      setError(`Fichier trop volumineux : ${formatBytes(file.size)}. Maximum autorisé : 20 Mo.`)
       return
     }
 
     setUploading(true)
     setError('')
     setSuccess('')
-    setProgress('Téléversement…')
+    setProgress(5)
+    setProgressMsg('Préparation…')
 
     const timestamp = Date.now()
-    const path = `${songId}/${timestamp}-${safeName(file.name)}`
+    const storagePath = `${songId}/${timestamp}-${safeName(file.name)}`
+
+    // If replacing, delete old storage file first
+    if (replacing) {
+      const oldBucket = replacing.storage_path.startsWith('songs/') ? 'media' : 'song-audios'
+      await supabase.storage.from(oldBucket).remove([replacing.storage_path])
+    }
+
+    setProgress(15)
+    setProgressMsg('Téléversement en cours…')
+
+    // Animate progress while uploading (Supabase SDK doesn't expose progress events)
+    const progressInterval = simulateProgress(15, 85, setProgress)
 
     const { error: uploadErr } = await supabase.storage
       .from('song-audios')
-      .upload(path, file, { contentType: file.type, upsert: false })
+      .upload(storagePath, file, { contentType: file.type, upsert: false })
+
+    clearInterval(progressInterval)
 
     if (uploadErr) {
-      setError(uploadErr.message)
+      setProgress(0)
+      setProgressMsg('')
+      setError(`Erreur storage : ${formatSupabaseError(uploadErr)}`)
       setUploading(false)
-      setProgress('')
       return
     }
 
-    setProgress('Enregistrement des métadonnées…')
+    setProgress(88)
+    setProgressMsg('Enregistrement des métadonnées…')
 
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { data: row, error: dbErr } = await supabase
-      .from('song_files')
-      .insert({
-        song_id:      songId,
-        label:        effectiveLabel.trim(),
-        kind,
-        storage_path: path,
-        file_name:    file.name,
-        mime_type:    file.type,
-        size_bytes:   file.size,
-        uploaded_by:  user?.id ?? null,
-      })
-      .select()
-      .single()
+    if (replacing) {
+      // Update existing record
+      const { error: dbErr } = await supabase
+        .from('song_files')
+        .update({
+          label:        effectiveLabel.trim(),
+          kind,
+          storage_path: storagePath,
+          file_name:    file.name,
+          mime_type:    file.type,
+          size_bytes:   file.size,
+        })
+        .eq('id', replacing.id)
 
-    if (dbErr) {
-      // Roll back storage upload
-      await supabase.storage.from('song-audios').remove([path])
-      setError(dbErr.message)
-      setUploading(false)
-      setProgress('')
-      return
+      if (dbErr) {
+        await supabase.storage.from('song-audios').remove([storagePath])
+        setProgress(0)
+        setProgressMsg('')
+        setError(`Erreur BDD (mise à jour) : ${formatSupabaseError(dbErr)}`)
+        setUploading(false)
+        return
+      }
+
+      setFiles(f => f.map(x => x.id === replacing.id
+        ? { ...x, label: effectiveLabel.trim(), kind, storage_path: storagePath, file_name: file.name, mime_type: file.type, size_bytes: file.size }
+        : x
+      ))
+      setSuccess(`"${effectiveLabel.trim()}" remplacé avec succès.`)
+      setReplacing(null)
+    } else {
+      // Insert new record
+      const { data: row, error: dbErr } = await supabase
+        .from('song_files')
+        .insert({
+          song_id:      songId,
+          label:        effectiveLabel.trim(),
+          kind,
+          storage_path: storagePath,
+          file_name:    file.name,
+          mime_type:    file.type,
+          size_bytes:   file.size,
+          uploaded_by:  user?.id ?? null,
+        })
+        .select()
+        .single()
+
+      if (dbErr) {
+        await supabase.storage.from('song-audios').remove([storagePath])
+        setProgress(0)
+        setProgressMsg('')
+        setError(`Erreur BDD (insertion) : ${formatSupabaseError(dbErr)}`)
+        setUploading(false)
+        return
+      }
+
+      setFiles(f => [...f, row])
+      setSuccess(`"${effectiveLabel.trim()}" téléversé avec succès.`)
     }
 
-    setFiles(f => [...f, row])
-    setSuccess(`"${effectiveLabel.trim()}" téléversé avec succès.`)
+    setProgress(100)
+    setProgressMsg('Terminé !')
     setLabel('')
     setCustom('')
     if (fileRef.current) fileRef.current.value = ''
     setUploading(false)
-    setProgress('')
+    setTimeout(() => { setProgress(0); setProgressMsg('') }, 1500)
     router.refresh()
   }
 
   async function handleDelete(fileId: string, storagePath: string) {
     if (!confirm('Supprimer ce fichier définitivement ?')) return
-    // Determine bucket: legacy files are in 'media', new ones in 'song-audios'
     const bucket = storagePath.startsWith('songs/') ? 'media' : 'song-audios'
-    await supabase.storage.from(bucket).remove([storagePath])
-    await supabase.from('song_files').delete().eq('id', fileId)
+    const { error: storageErr } = await supabase.storage.from(bucket).remove([storagePath])
+    if (storageErr) {
+      alert(`Erreur suppression storage : ${storageErr.message}`)
+      return
+    }
+    const { error: dbErr } = await supabase.from('song_files').delete().eq('id', fileId)
+    if (dbErr) {
+      alert(`Erreur suppression BDD : ${formatSupabaseError(dbErr)}`)
+      return
+    }
     setFiles(f => f.filter(x => x.id !== fileId))
     router.refresh()
   }
@@ -154,7 +247,7 @@ export default function FileManager({ songId, files: initialFiles }: FileManager
           {files.map(file => (
             <li key={file.id}
               className="flex items-center justify-between gap-3 bg-[#FBF6EC] border border-[#E2B36A]/40 rounded-lg px-3 py-2.5">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <span className="text-xs font-semibold text-[#B87333] uppercase mr-1.5">[{file.kind}]</span>
                 <span className="text-sm text-[#5A3318] font-medium">{file.label}</span>
                 {file.file_name && (
@@ -164,81 +257,137 @@ export default function FileManager({ songId, files: initialFiles }: FileManager
                   <span className="text-xs text-[#B87333]/50 ml-1">· {formatBytes(file.size_bytes)}</span>
                 )}
               </div>
-              <button
-                onClick={() => handleDelete(file.id, file.storage_path)}
-                className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition-colors flex-shrink-0"
-              >
-                Supprimer
-              </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => startReplace(file)}
+                  className="text-xs text-[#B87333] hover:text-[#5A3318] border border-[#E2B36A]/60 hover:border-[#B87333] px-2 py-1 rounded transition-colors"
+                  title="Remplacer le fichier"
+                >
+                  ↺ Remplacer
+                </button>
+                <button
+                  onClick={() => handleDelete(file.id, file.storage_path)}
+                  className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition-colors"
+                >
+                  Supprimer
+                </button>
+              </div>
             </li>
           ))}
         </ul>
       )}
 
+      {/* Replace mode banner */}
+      {replacing && (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm">
+          <span className="text-amber-800">
+            ↺ Remplacement de <strong>"{replacing.label}"</strong> — sélectionnez un nouveau fichier
+          </span>
+          <button onClick={cancelReplace} className="text-amber-600 hover:text-amber-900 ml-3 text-xs underline">
+            Annuler
+          </button>
+        </div>
+      )}
+
       {/* Upload form */}
       <form onSubmit={handleUpload} className="border border-[#E2B36A]/40 rounded-xl p-4 bg-[#FBF6EC]/40 space-y-3">
-        <p className="text-xs font-semibold text-[#5A3318] uppercase tracking-wide">Ajouter un fichier</p>
+        <p className="text-xs font-semibold text-[#5A3318] uppercase tracking-wide">
+          {replacing ? '↺ Remplacer le fichier' : 'Ajouter un fichier'}
+        </p>
 
         {/* Kind */}
-        <div className="grid grid-cols-3 gap-2">
-          {KIND_OPTIONS.map(o => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => setKind(o.value as 'audio' | 'playback' | 'sheet')}
-              className={`text-xs px-2 py-1.5 rounded-lg border transition-colors ${
-                kind === o.value
-                  ? 'bg-[#B87333] border-[#B87333] text-white font-semibold'
-                  : 'border-[#E2B36A]/60 text-[#5A3318] hover:bg-[#E2B36A]/20'
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        {!replacing && (
+          <div className="grid grid-cols-3 gap-2">
+            {KIND_OPTIONS.map(o => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => setKind(o.value as 'audio' | 'playback' | 'sheet')}
+                className={`text-xs px-2 py-1.5 rounded-lg border transition-colors ${
+                  kind === o.value
+                    ? 'bg-[#B87333] border-[#B87333] text-white font-semibold'
+                    : 'border-[#E2B36A]/60 text-[#5A3318] hover:bg-[#E2B36A]/20'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Label */}
-        <div>
-          <label className="block text-xs font-semibold text-[#5A3318] mb-1">Label *</label>
-          <select className={inputCls} value={label} onChange={e => { setLabel(e.target.value); setError('') }} required={label !== '__custom__'}>
-            <option value="">— Choisir un label —</option>
-            {LABEL_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
-            <option value="__custom__">Autre (saisir manuellement)</option>
-          </select>
-          {label === '__custom__' && (
-            <input
-              className={`${inputCls} mt-2`}
-              placeholder="Label personnalisé"
-              value={customLabel}
-              onChange={e => setCustom(e.target.value)}
-              required
-            />
-          )}
-        </div>
+        {!replacing && (
+          <div>
+            <label className="block text-xs font-semibold text-[#5A3318] mb-1">Label *</label>
+            <select
+              className={inputCls}
+              value={label}
+              onChange={e => { setLabel(e.target.value); setError('') }}
+              required={label !== '__custom__'}
+            >
+              <option value="">— Choisir un label —</option>
+              {LABEL_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+              <option value="__custom__">Autre (saisir manuellement)</option>
+            </select>
+            {label === '__custom__' && (
+              <input
+                className={`${inputCls} mt-2`}
+                placeholder="Label personnalisé"
+                value={customLabel}
+                onChange={e => setCustom(e.target.value)}
+                required
+              />
+            )}
+          </div>
+        )}
 
         {/* File picker */}
         <div>
           <label className="block text-xs font-semibold text-[#5A3318] mb-1">
-            Fichier audio <span className="font-normal text-[#B87333]/60">(mp3, wav, m4a, ogg, webm — max 50 Mo)</span>
+            Fichier audio{' '}
+            <span className="font-normal text-[#B87333]/60">(mp3, wav, m4a — max 20 Mo)</span>
           </label>
           <input
             ref={fileRef}
             type="file"
             accept={ACCEPT}
             className={inputCls}
-            required
+            required={!replacing}
             onChange={() => setError('')}
           />
         </div>
 
+        {/* Progress bar */}
+        {progress > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-[#B87333]">
+              <span>{progressMsg}</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="w-full bg-[#E2B36A]/20 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-[#B87333] h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Feedback */}
-        {progress && <p className="text-xs text-[#B87333] animate-pulse">{progress}</p>}
-        {error   && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
-        {success && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">✓ {success}</p>}
+        {error && (
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 font-mono break-all">
+            ✕ {error}
+          </div>
+        )}
+        {success && (
+          <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            ✓ {success}
+          </p>
+        )}
 
         <button
           type="submit"
-          disabled={uploading || !label}
+          disabled={uploading || (!replacing && !label)}
           className="bg-[#B87333] hover:bg-[#5A3318] text-white text-sm px-5 py-2 rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
         >
           {uploading ? (
@@ -246,11 +395,21 @@ export default function FileManager({ songId, files: initialFiles }: FileManager
               <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 12a9 9 0 11-6.219-8.56"/>
               </svg>
-              Téléversement…
+              {replacing ? 'Remplacement…' : 'Téléversement…'}
             </>
-          ) : '⬆ Téléverser'}
+          ) : replacing ? '↺ Confirmer le remplacement' : '⬆ Téléverser'}
         </button>
       </form>
     </div>
   )
+}
+
+/** Animate progress from `from` to `to` over ~3 s — returns interval id */
+function simulateProgress(from: number, to: number, setProgress: (v: number) => void): ReturnType<typeof setInterval> {
+  let current = from
+  const step = (to - from) / 30
+  return setInterval(() => {
+    current = Math.min(current + step, to)
+    setProgress(Math.round(current))
+  }, 100)
 }
