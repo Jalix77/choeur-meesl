@@ -7,7 +7,7 @@ export type Json =
   | Json[];
 
 export type Role = 'admin' | 'leader' | 'member';
-export type FileKind = 'audio' | 'playback' | 'sheet';
+export type FileKind = 'audio' | 'playback' | 'sheet' | 'youtube';
 
 export interface Database {
   public: {
@@ -127,7 +127,8 @@ export interface Database {
           song_id: string;
           label: string;
           kind: FileKind;
-          storage_path: string;
+          storage_path: string | null;
+          video_url: string | null;
           file_name: string | null;
           mime_type: string | null;
           size_bytes: number | null;
@@ -139,7 +140,8 @@ export interface Database {
           song_id: string;
           label: string;
           kind: FileKind;
-          storage_path: string;
+          storage_path?: string | null;
+          video_url?: string | null;
           file_name?: string | null;
           mime_type?: string | null;
           size_bytes?: number | null;
@@ -149,7 +151,8 @@ export interface Database {
         Update: {
           label?: string;
           kind?: FileKind;
-          storage_path?: string;
+          storage_path?: string | null;
+          video_url?: string | null;
           file_name?: string | null;
           mime_type?: string | null;
           size_bytes?: number | null;
@@ -306,7 +309,7 @@ export type SongFile = Database['public']['Tables']['song_files']['Row']
  *  Legacy files uploaded before the audio migration used 'media'.
  *  All new audio files use 'song-audios'. */
 export function songFileBucket(file: Pick<SongFile, 'storage_path'>): string {
-  return file.storage_path.startsWith('songs/') ? 'media' : 'song-audios'
+  return file.storage_path?.startsWith('songs/') ? 'media' : 'song-audios'
 }
 export type Rehearsal = Database['public']['Tables']['rehearsals']['Row'] & {
   title?: string | null

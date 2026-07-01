@@ -84,6 +84,23 @@ export function buildAnnouncementWAUrl(phone: string, title: string, content: st
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(buildAnnouncementWAMessage(title, content))}`
 }
 
+/** Construit le texte du message WhatsApp pour partager un lien YouTube d'un chant */
+export function buildSongYoutubeWAMessage(songTitle: string, youtubeUrl: string): string {
+  return [
+    '🎵 Chœur de Louange MEESL',
+    '',
+    'Voici le lien YouTube pour le chant :',
+    songTitle,
+    '',
+    `🎥 ${youtubeUrl}`,
+  ].join('\n')
+}
+
+/** Construit le lien wa.me (sans destinataire précis) pour partager un lien YouTube d'un chant */
+export function buildSongYoutubeWAUrl(songTitle: string, youtubeUrl: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(buildSongYoutubeWAMessage(songTitle, youtubeUrl))}`
+}
+
 export function buildWhatsAppMessage(opts: {
   name: string
   vocal_role: string

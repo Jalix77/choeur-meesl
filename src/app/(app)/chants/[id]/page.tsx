@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import SongSheet from '@/components/SongSheet'
 import AudioList from '@/components/AudioList'
+import YoutubeList from '@/components/YoutubeList'
 import FileManager from '@/components/FileManager'
 import type { Profile, SongFile } from '@/lib/database.types'
 import { songFileBucket } from '@/lib/database.types'
@@ -31,14 +32,18 @@ export default async function SongPage({ params, searchParams }: {
     .eq('song_id', id)
     .order('created_at')
 
-  // Generate signed URLs — route to the correct bucket per file
+  // Generate signed URLs — route to the correct bucket per file (skip YouTube links, no storage object)
   const filesWithUrls = await Promise.all(
-    (songFiles ?? []).map(async (file: SongFile) => {
-      const bucket = songFileBucket(file)
-      const { data } = await supabase.storage.from(bucket).createSignedUrl(file.storage_path, 3600)
-      return { ...file, signedUrl: data?.signedUrl ?? '' }
-    })
+    (songFiles ?? [])
+      .filter((file: SongFile) => file.kind !== 'youtube' && file.storage_path)
+      .map(async (file: SongFile) => {
+        const bucket = songFileBucket(file)
+        const { data } = await supabase.storage.from(bucket).createSignedUrl(file.storage_path!, 3600)
+        return { ...file, signedUrl: data?.signedUrl ?? '' }
+      })
   )
+
+  const youtubeFiles = (songFiles ?? []).filter((file: SongFile) => file.kind === 'youtube')
 
   return (
     <div className="space-y-6">
@@ -77,6 +82,11 @@ export default async function SongPage({ params, searchParams }: {
       {/* Audio player — visible to all members when files exist */}
       {filesWithUrls.length > 0 && (
         <AudioList files={filesWithUrls} canDelete={isAdmin} />
+      )}
+
+      {/* YouTube videos — visible to all members when links exist */}
+      {youtubeFiles.length > 0 && (
+        <YoutubeList files={youtubeFiles} songTitle={song.title} canDelete={isAdmin} />
       )}
 
       {/* Audio upload — admin only, always shown so they can add files */}

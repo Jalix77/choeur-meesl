@@ -41,7 +41,7 @@ export default function AudioList({ files, canDelete = false }: AudioListProps) 
     if (!confirm(`Supprimer "${file.label}" ?`)) return
     setDeleting(file.id)
     const bucket = songFileBucket(file)
-    await supabase.storage.from(bucket).remove([file.storage_path])
+    if (file.storage_path) await supabase.storage.from(bucket).remove([file.storage_path])
     await supabase.from('song_files').delete().eq('id', file.id)
     setDeleting(null)
     router.refresh()
