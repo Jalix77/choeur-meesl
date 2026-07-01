@@ -336,8 +336,16 @@ export type RehearsalChorister = {
   profiles?: Pick<Profile, 'id' | 'full_name' | 'phone'>
 }
 
-export type VocalRole = 'Soprano' | 'Alto' | 'Ténor' | 'Basse' | 'Lead' | 'Directeur' | 'Musicien' | 'Autre'
-export const VOCAL_ROLES: VocalRole[] = ['Soprano', 'Alto', 'Ténor', 'Basse', 'Lead', 'Directeur', 'Musicien', 'Autre']
+export type VocalRole =
+  | 'Soprano' | 'Alto' | 'Ténor' | 'Basse' | 'Lead' | 'Directeur' | 'Musicien'
+  | 'Multimédia (Videopsalm)' | 'Multimédia (Livestreaming)' | 'Multimédia (Photographe)' | 'Multimédia (Sonorisation)'
+  | 'Autre'
+
+export const VOCAL_ROLES: VocalRole[] = [
+  'Soprano', 'Alto', 'Ténor', 'Basse', 'Lead', 'Directeur', 'Musicien',
+  'Multimédia (Videopsalm)', 'Multimédia (Livestreaming)', 'Multimédia (Photographe)', 'Multimédia (Sonorisation)',
+  'Autre',
+]
 
 // ── Birthday helpers ──────────────────────────────────────────────────────────
 
