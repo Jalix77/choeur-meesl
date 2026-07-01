@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import type { Song, Profile } from '@/lib/database.types'
+import type { Profile } from '@/lib/database.types'
 import { canManageContent } from '@/lib/roles'
+import SongsList from '@/components/SongsList'
 
 interface SearchParams { q?: string }
 
@@ -49,36 +50,7 @@ export default async function SongsPage({ searchParams }: { searchParams: Promis
         )}
       </form>
 
-      {songs && songs.length > 0 ? (
-        <div className="grid gap-2">
-          {songs.map((song: Song) => (
-            <div key={song.id}
-              className="flex items-center justify-between bg-white/60 border border-[#E2B36A]/40 rounded-xl px-3 sm:px-4 py-3 hover:border-[#B87333]/50 transition-colors gap-2">
-              <div className="flex-1 min-w-0">
-                <Link href={`/chants/${song.id}`}
-                  className="font-semibold text-[#5A3318] hover:text-[#B87333] transition-colors text-sm sm:text-base line-clamp-1">
-                  {song.title}
-                </Link>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                  {song.key_signature && <span className="text-xs text-[#B87333]">Ton : {song.key_signature}</span>}
-                  {song.tempo && <span className="text-xs text-[#7A4A20]">♩ {song.tempo}</span>}
-                  {song.author && <span className="text-xs text-[#7A4A20] truncate max-w-[120px]">{song.author}</span>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Link href={`/chants/${song.id}`} className="text-xs text-[#B87333] hover:underline">Voir</Link>
-                {canEdit && (
-                  <Link href={`/chants/${song.id}/modifier`} className="text-xs text-[#7A4A20] hover:underline hidden sm:inline">Modifier</Link>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 text-[#B87333]/70 italic">
-          {q ? `Aucun résultat pour « ${q} »` : 'Aucun chant pour l\'instant.'}
-        </div>
-      )}
+      <SongsList songs={songs ?? []} canEdit={canEdit} searchQuery={q} />
     </div>
   )
 }
