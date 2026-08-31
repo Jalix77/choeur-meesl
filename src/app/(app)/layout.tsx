@@ -21,12 +21,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FBF6EC] overflow-x-hidden">
+    <div className="app-shell min-h-screen flex flex-col bg-[#FBF6EC] overflow-x-hidden">
       <NavBar profile={profile as Profile} />
       <main className="flex-1 max-w-6xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6 overflow-x-hidden">
         {children}
       </main>
-      <footer className="border-t border-[#E2B36A]/40 py-4 text-center text-xs text-[#B87333]/70 px-4">
+      <footer className="site-footer border-t border-[#E2B36A]/40 py-4 text-center text-xs text-[#B87333]/70 px-4">
         <p className="leading-relaxed">
           Mission Église Évangélique Sel et Lumière · 4, Delmas 48<br className="sm:hidden" />
           <span className="hidden sm:inline"> · </span>

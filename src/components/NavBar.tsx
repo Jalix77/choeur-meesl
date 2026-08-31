@@ -54,7 +54,7 @@ export default function NavBar({ profile }: NavBarProps) {
   }
 
   return (
-    <nav className="bg-[#5A3318] shadow-lg relative z-40" ref={menuRef}>
+    <nav className="site-nav bg-[#5A3318] shadow-lg relative z-40" ref={menuRef}>
       <div className="max-w-6xl mx-auto px-3 sm:px-4">
         <div className="flex items-center justify-between h-14">
 
