@@ -30,8 +30,10 @@ export async function proxy(request: NextRequest) {
   const isPasswordReset = request.nextUrl.pathname === '/forgot-password' || request.nextUrl.pathname === '/reset-password'
   // Public birthday card page — accessible without login (for WhatsApp sharing)
   const isPublicCard = request.nextUrl.pathname.startsWith('/anniversaire/')
+  // Public read-only service program page — accessible without login (external invitees, no MEESL account)
+  const isPublicProgram = request.nextUrl.pathname.startsWith('/public/programme/')
 
-  if (!user && !isLoginPage && !isApiRoute && !isPasswordReset && !isPublicCard) {
+  if (!user && !isLoginPage && !isApiRoute && !isPasswordReset && !isPublicCard && !isPublicProgram) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
