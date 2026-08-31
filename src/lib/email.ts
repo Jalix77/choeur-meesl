@@ -283,7 +283,61 @@ export function buildWhatsAppMessage(data: RehearsalNotificationData): string {
   ].filter(l => l !== undefined).join('\n')
 }
 
-// ─── Email sender ─────────────────────────────────────────────────────────────
+// ─── Low-level sender (Resend) — partagé par tous les canaux email ────────────
+
+async function deliverEmail(opts: {
+  to: string
+  subject: string
+  text: string
+  html: string
+  logLabel: string   // ex: "Jean Alix Pierre <jean@x.com>"
+}): Promise<{ ok: boolean; error?: string }> {
+  const from = process.env.EMAIL_FROM || 'Chœur de Louange MEESL <noreply@egliseevangeliqueseletlumiere.org>'
+  const apiKey = process.env.RESEND_API_KEY
+
+  if (!apiKey) {
+    // Dev / staging fallback — log to console, treat as success
+    console.log(`[EMAIL SIMULATED]`)
+    console.log(`  To     : ${opts.to}`)
+    console.log(`  Subject: ${opts.subject}`)
+    console.log(`  Body   :\n${opts.text}`)
+    return { ok: true }
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [opts.to],
+        subject: opts.subject,
+        text: opts.text,
+        html: opts.html,
+      }),
+    })
+
+    if (res.ok) {
+      const resData = await res.json()
+      console.info(`[EMAIL] OK  ${opts.logLabel} id=${resData.id}`)
+      return { ok: true }
+    } else {
+      const errData = await res.json().catch(() => ({ message: res.statusText }))
+      const errMsg = errData?.message ?? JSON.stringify(errData)
+      console.error(`[EMAIL] FAIL ${opts.logLabel} — ${errMsg}`)
+      return { ok: false, error: errMsg }
+    }
+  } catch (err) {
+    const errMsg = String(err)
+    console.error(`[EMAIL] ERR ${opts.logLabel} — ${errMsg}`)
+    return { ok: false, error: errMsg }
+  }
+}
+
+// ─── Email sender — choriste / responsable interne ─────────────────────────────
 
 export async function sendRehearsalEmail(
   data: RehearsalNotificationData
@@ -302,47 +356,162 @@ export async function sendRehearsalEmail(
   }
 
   const { subject, textBody, htmlBody } = buildNotificationPayload(data)
-  const from = process.env.EMAIL_FROM || 'Chœur de Louange MEESL <noreply@egliseevangeliqueseletlumiere.org>'
-  const apiKey = process.env.RESEND_API_KEY
+  const result = await deliverEmail({
+    to: profile.email,
+    subject,
+    text: textBody,
+    html: htmlBody,
+    logLabel: `${profile.full_name} <${profile.email}>`,
+  })
 
-  if (!apiKey) {
-    // Dev / staging fallback — log to console, treat as success
-    console.log(`[EMAIL SIMULATED]`)
-    console.log(`  To     : ${profile.email}`)
-    console.log(`  Subject: ${subject}`)
-    console.log(`  Body   :\n${textBody}`)
-    return { profile_id: profile.id, full_name: profile.full_name, ok: true, skipped: false, channel }
+  return { profile_id: profile.id, full_name: profile.full_name, ok: result.ok, skipped: false, error: result.error, channel }
+}
+
+// ─── Email sender — invité externe (programmation du culte uniquement) ────────
+
+export interface ExternalProgramNotificationData {
+  rehearsal: {
+    id: string
+    starts_at: string
+    location: string | null
+  }
+  external: {
+    name: string
+    email: string
+    notified_email: boolean
+  }
+  /** Rôle(s) assigné(s), combinés si l'invité intervient sur plusieurs éléments. */
+  label: string
+}
+
+export function buildExternalProgramEmailPayload(data: ExternalProgramNotificationData) {
+  const { rehearsal, external, label } = data
+  const date = fmtDate(rehearsal.starts_at)
+  const time = fmtTime(rehearsal.starts_at)
+  const location = rehearsal.location ?? 'À confirmer'
+
+  const subject = `[Chœur de Louange] Programmation du culte — ${label}`
+
+  const textBody = [
+    `Bonjour ${external.name},`,
+    '',
+    'Vous êtes assigné(e) à la programmation du culte de la Mission Église Évangélique Sel et Lumière.',
+    '',
+    `Responsabilité : ${label}`,
+    `Date : ${date}`,
+    `Heure : ${time}`,
+    `Lieu : ${location}`,
+    '',
+    `Voir la programmation complète : ${APP_URL}/planning`,
+    '',
+    'Mission Église Évangélique Sel et Lumière',
+    'Chœur de Louange · 4, Delmas 48 · Port-au-Prince, Haïti',
+    'meesl1410@gmail.com · (509) 37 97 1717',
+  ].join('\n')
+
+  const htmlBody = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5efe3;font-family:'Georgia',serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5efe3;padding:32px 16px;">
+<tr><td align="center">
+<table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(90,51,24,.12);">
+
+  <tr>
+    <td style="background:#5A3318;padding:28px 36px;">
+      <p style="margin:0;font-family:'Palatino Linotype',serif;font-size:22px;font-weight:700;color:#E2B36A;letter-spacing:1px;">
+        Chœur de Louange
+      </p>
+      <p style="margin:4px 0 0;font-size:12px;color:#c9a46a;letter-spacing:2px;text-transform:uppercase;">
+        Mission Église Évangélique Sel et Lumière
+      </p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background:#B87333;padding:14px 36px;">
+      <p style="margin:0;font-size:15px;font-weight:700;color:#fff;letter-spacing:.5px;">
+        Programmation du culte
+      </p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:32px 36px;">
+      <p style="margin:0 0 20px;font-size:15px;color:#3d1f09;">
+        Bonjour <strong>${external.name}</strong>,
+      </p>
+      <p style="margin:0 0 24px;font-size:14px;color:#5A3318;line-height:1.6;">
+        Vous êtes assigné(e) à la programmation du culte de la Mission Église Évangélique Sel et Lumière.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0"
+        style="background:#FBF6EC;border:1px solid #E2B36A;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+        <tr style="border-bottom:1px solid #E2B36A40;">
+          <td style="padding:10px 16px;font-size:12px;color:#B87333;font-weight:700;text-transform:uppercase;width:34%;">Responsabilité</td>
+          <td style="padding:10px 16px;font-size:14px;color:#3d1f09;font-weight:600;">${label}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #E2B36A40;background:#fff;">
+          <td style="padding:10px 16px;font-size:12px;color:#B87333;font-weight:700;text-transform:uppercase;">Date</td>
+          <td style="padding:10px 16px;font-size:14px;color:#3d1f09;">${date}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #E2B36A40;">
+          <td style="padding:10px 16px;font-size:12px;color:#B87333;font-weight:700;text-transform:uppercase;">Heure</td>
+          <td style="padding:10px 16px;font-size:14px;color:#3d1f09;">${time}</td>
+        </tr>
+        <tr style="background:#fff;">
+          <td style="padding:10px 16px;font-size:12px;color:#B87333;font-weight:700;text-transform:uppercase;">Lieu</td>
+          <td style="padding:10px 16px;font-size:14px;color:#3d1f09;">${location}</td>
+        </tr>
+      </table>
+
+      <p style="margin:0;">
+        <a href="${APP_URL}/planning"
+           style="display:inline-block;background:#B87333;color:#fff;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;text-decoration:none;">
+          📅 Voir la programmation complète
+        </a>
+      </p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background:#FBF6EC;border-top:2px solid #B87333;padding:18px 36px;">
+      <p style="margin:0;font-size:11px;color:#B87333;line-height:1.8;">
+        <strong>Mission Église Évangélique Sel et Lumière</strong><br>
+        4, Delmas 48 · Port-au-Prince, Haïti<br>
+        meesl1410@gmail.com · (509) 37 97 1717 · (509) 33 16 6621
+      </p>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`
+
+  return { subject, textBody, htmlBody }
+}
+
+export async function sendExternalProgramEmail(
+  data: ExternalProgramNotificationData
+): Promise<NotificationResult> {
+  const { external } = data
+  const channel = 'email' as const
+
+  if (external.notified_email) {
+    console.info(`[EMAIL] SKIP (externe) ${external.name} <${external.email}> — already notified`)
+    return { profile_id: external.email, full_name: external.name, ok: true, skipped: true, channel }
   }
 
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [profile.email],
-        subject,
-        text: textBody,
-        html: htmlBody,
-      }),
-    })
+  const { subject, textBody, htmlBody } = buildExternalProgramEmailPayload(data)
+  const result = await deliverEmail({
+    to: external.email,
+    subject,
+    text: textBody,
+    html: htmlBody,
+    logLabel: `(externe) ${external.name} <${external.email}>`,
+  })
 
-    if (res.ok) {
-      const resData = await res.json()
-      console.info(`[EMAIL] OK  ${profile.full_name} <${profile.email}> id=${resData.id}`)
-      return { profile_id: profile.id, full_name: profile.full_name, ok: true, skipped: false, channel }
-    } else {
-      const errData = await res.json().catch(() => ({ message: res.statusText }))
-      const errMsg = errData?.message ?? JSON.stringify(errData)
-      console.error(`[EMAIL] FAIL ${profile.full_name} <${profile.email}> — ${errMsg}`)
-      return { profile_id: profile.id, full_name: profile.full_name, ok: false, skipped: false, error: errMsg, channel }
-    }
-  } catch (err) {
-    const errMsg = String(err)
-    console.error(`[EMAIL] ERR ${profile.full_name} — ${errMsg}`)
-    return { profile_id: profile.id, full_name: profile.full_name, ok: false, skipped: false, error: errMsg, channel }
-  }
+  return { profile_id: external.email, full_name: external.name, ok: result.ok, skipped: false, error: result.error, channel }
 }

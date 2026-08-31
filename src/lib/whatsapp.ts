@@ -8,6 +8,8 @@ export interface WhatsAppTarget {
   full_name: string
   phone: string | null | undefined
   vocal_role: string
+  /** 'external' = invité sans compte membre, assigné uniquement via la programmation du culte. Défaut : 'internal'. */
+  kind?: 'internal' | 'external'
 }
 
 export interface WhatsAppLink {
@@ -148,6 +150,32 @@ export function buildWhatsAppMessage(opts: {
   return lines.join('\n')
 }
 
+/** Message WhatsApp pour un invité externe assigné uniquement via la programmation du culte (pas de compte membre). */
+export function buildExternalServiceWAMessage(opts: {
+  name: string
+  label: string
+  starts_at: string
+  location: string | null
+}): string {
+  const { name, label, starts_at, location } = opts
+  const date = fmtDate(starts_at)
+  const time = fmtTime(starts_at)
+  const loc = location ?? 'À confirmer'
+
+  return [
+    `Bonjour ${name},`,
+    '',
+    'Vous êtes assigné(e) au service du culte de la Mission Église Évangélique Sel et Lumière.',
+    '',
+    `Responsabilité : ${label}`,
+    `Date : ${date}`,
+    `Heure : ${time}`,
+    `Lieu : ${loc}`,
+    '',
+    `Voir la programmation : ${APP_URL}/planning`,
+  ].join('\n')
+}
+
 export function buildWhatsAppLinks(opts: {
   targets: WhatsAppTarget[]
   starts_at: string
@@ -162,15 +190,22 @@ export function buildWhatsAppLinks(opts: {
       return { profile_id: t.profile_id, full_name: t.full_name, phone: null, vocal_role: t.vocal_role, url: null, missingPhone: true }
     }
     const cleaned = cleanPhone(phone)
-    const message = buildWhatsAppMessage({
-      name: t.full_name,
-      vocal_role: t.vocal_role,
-      starts_at: opts.starts_at,
-      location: opts.location,
-      notes: opts.notes,
-      songs: opts.songs,
-      hasProgram: opts.hasProgram,
-    })
+    const message = t.kind === 'external'
+      ? buildExternalServiceWAMessage({
+          name: t.full_name,
+          label: t.vocal_role,
+          starts_at: opts.starts_at,
+          location: opts.location,
+        })
+      : buildWhatsAppMessage({
+          name: t.full_name,
+          vocal_role: t.vocal_role,
+          starts_at: opts.starts_at,
+          location: opts.location,
+          notes: opts.notes,
+          songs: opts.songs,
+          hasProgram: opts.hasProgram,
+        })
     const url = `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`
     return { profile_id: t.profile_id, full_name: t.full_name, phone: cleaned, vocal_role: t.vocal_role, url, missingPhone: false }
   })

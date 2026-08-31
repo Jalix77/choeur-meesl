@@ -230,6 +230,8 @@ export interface Database {
           label: string;
           profile_id: string | null;
           external_name: string | null;
+          external_email: string | null;
+          external_phone: string | null;
           note: string | null;
           notified_email: boolean;
           notified_whatsapp: boolean;
@@ -244,6 +246,8 @@ export interface Database {
           label: string;
           profile_id?: string | null;
           external_name?: string | null;
+          external_email?: string | null;
+          external_phone?: string | null;
           note?: string | null;
           notified_email?: boolean;
           notified_whatsapp?: boolean;
@@ -256,6 +260,8 @@ export interface Database {
           label?: string;
           profile_id?: string | null;
           external_name?: string | null;
+          external_email?: string | null;
+          external_phone?: string | null;
           note?: string | null;
           notified_email?: boolean;
           notified_whatsapp?: boolean;

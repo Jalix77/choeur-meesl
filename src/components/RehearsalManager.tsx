@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { VOCAL_ROLES, type VocalRole, type RehearsalChorister, type ServiceProgramItemWithProfile } from '@/lib/database.types'
 import { buildWhatsAppLinks, type WhatsAppLink } from '@/lib/whatsapp'
 import { haitiInputToISO, isoToHaitiInput } from '@/lib/rehearsal-time'
-import { DEFAULT_PROGRAM_ITEMS, mergeServiceAssignments } from '@/lib/service-program'
+import { DEFAULT_PROGRAM_ITEMS, mergeServiceRecipients } from '@/lib/service-program'
 import ServiceProgramEditor, { type ProgramItemDraft } from '@/components/ServiceProgramEditor'
 
 interface Song { id: string; title: string }
@@ -67,16 +67,22 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
             key: it.id,
             item_type: it.item_type,
             label: it.label,
+            assignee_mode: it.profile_id ? 'member' : (it.external_name ? 'external' : 'none'),
             profile_id: it.profile_id,
             external_name: it.external_name ?? '',
+            external_email: it.external_email ?? '',
+            external_phone: it.external_phone ?? '',
             note: it.note ?? '',
           }))
       : DEFAULT_PROGRAM_ITEMS.map((it, i) => ({
           key: `default-${i}`,
           item_type: it.item_type,
           label: it.label,
+          assignee_mode: 'none',
           profile_id: null,
           external_name: '',
+          external_email: '',
+          external_phone: '',
           note: '',
         }))
   )
@@ -99,8 +105,15 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
     setError('')
+
+    const missingExternalName = programItems.find(it => it.assignee_mode === 'external' && !it.external_name.trim())
+    if (missingExternalName) {
+      setError(`Veuillez saisir le nom de l'invité pour « ${missingExternalName.label || 'un élément de la programmation'} ».`)
+      return
+    }
+
+    setLoading(true)
     setWhatsappLinks(null)
 
     const payload = {
@@ -159,13 +172,15 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
       if (validProgramItems.length > 0) {
         const { error: programErr } = await supabase.from('service_program_items').insert(
           validProgramItems.map((it, i) => ({
-            rehearsal_id:  rehearsalId!,
-            order_index:   i,
-            item_type:     it.item_type,
-            label:         it.label.trim(),
-            profile_id:    it.profile_id,
-            external_name: it.profile_id ? null : (it.external_name.trim() || null),
-            note:          it.note.trim() || null,
+            rehearsal_id:   rehearsalId!,
+            order_index:    i,
+            item_type:      it.item_type,
+            label:          it.label.trim(),
+            profile_id:     it.assignee_mode === 'member' ? it.profile_id : null,
+            external_name:  it.assignee_mode === 'external' ? it.external_name.trim() : null,
+            external_email: it.assignee_mode === 'external' ? (it.external_email.trim() || null) : null,
+            external_phone: it.assignee_mode === 'external' ? (it.external_phone.trim() || null) : null,
+            note:           it.note.trim() || null,
           }))
         )
         if (programErr) {
@@ -175,11 +190,19 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
         }
       }
 
-      // Personnes en service = choristes sélectionnés ∪ responsables internes de la programmation
+      // Personnes en service = choristes sélectionnés ∪ responsables (internes + externes) de la programmation
       const internalProgramAssignees = validProgramItems
-        .filter(it => it.profile_id)
+        .filter(it => it.assignee_mode === 'member' && it.profile_id)
         .map(it => ({ profile_id: it.profile_id!, label: it.label.trim() }))
-      const servicePeople = mergeServiceAssignments(selectedChoristers, internalProgramAssignees)
+      const externalProgramAssignees = validProgramItems
+        .filter(it => it.assignee_mode === 'external' && it.external_name.trim())
+        .map(it => ({
+          label: it.label.trim(),
+          external_name: it.external_name.trim(),
+          external_email: it.external_email.trim() || null,
+          external_phone: it.external_phone.trim() || null,
+        }))
+      const servicePeople = mergeServiceRecipients(selectedChoristers, internalProgramAssignees, externalProgramAssignees)
 
       // Email notifications
       if (form.notify_email && servicePeople.length > 0) {
@@ -197,12 +220,22 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
           return { title: song?.title ?? '?', order_index: i }
         })
         const targets = servicePeople.map(person => {
-          const profile = choristers.find(c => c.id === person.profile_id)
+          if (person.profile_id) {
+            const profile = choristers.find(c => c.id === person.profile_id)
+            return {
+              profile_id: person.profile_id,
+              full_name: profile?.full_name ?? person.profile_id,
+              phone: profile?.phone,
+              vocal_role: person.role_labels.join(', '),
+              kind: 'internal' as const,
+            }
+          }
           return {
-            profile_id: person.profile_id,
-            full_name: profile?.full_name ?? person.profile_id,
-            phone: profile?.phone,
+            profile_id: person.key,
+            full_name: person.external_name ?? 'Invité',
+            phone: person.external_phone,
             vocal_role: person.role_labels.join(', '),
+            kind: 'external' as const,
           }
         })
         const links = buildWhatsAppLinks({

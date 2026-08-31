@@ -14,8 +14,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/lib/database.types'
-import { sendRehearsalEmail, type RehearsalNotificationData, type NotificationResult } from '@/lib/email'
-import { mergeServiceAssignments } from '@/lib/service-program'
+import { sendRehearsalEmail, sendExternalProgramEmail, type RehearsalNotificationData, type ExternalProgramNotificationData, type NotificationResult } from '@/lib/email'
+import { mergeServiceRecipients } from '@/lib/service-program'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -92,24 +92,36 @@ export async function POST(request: NextRequest) {
   // ── 3b. Fetch la programmation du culte (responsables + affichage complet) ───
   const { data: rawProgramItems } = await supabase
     .from('service_program_items')
-    .select('id, rehearsal_id, order_index, label, profile_id, external_name, notified_email')
+    .select('id, rehearsal_id, order_index, label, profile_id, external_name, external_email, external_phone, notified_email')
     .eq('rehearsal_id', rehearsal_id)
     .order('order_index')
 
   type ProgramItemRow = {
     id: string; rehearsal_id: string; order_index: number; label: string
-    profile_id: string | null; external_name: string | null; notified_email: boolean
+    profile_id: string | null; external_name: string | null
+    external_email: string | null; external_phone: string | null
+    notified_email: boolean
   }
   const programItemRows = (rawProgramItems ?? []) as ProgramItemRow[]
 
-  // Personnes en service = choristes ∪ responsables internes de la programmation (sans doublon)
+  // Personnes en service = choristes ∪ responsables (internes + externes) de la programmation, sans doublon
   const internalProgramAssignees = programItemRows
     .filter((it): it is ProgramItemRow & { profile_id: string } => !!it.profile_id)
-    .map(it => ({ profile_id: it.profile_id, label: it.label }))
+    .map(it => ({ profile_id: it.profile_id, label: it.label, item_id: it.id }))
+  const externalProgramAssignees = programItemRows
+    .filter((it): it is ProgramItemRow & { external_name: string } => !it.profile_id && !!it.external_name?.trim())
+    .map(it => ({
+      label: it.label,
+      external_name: it.external_name,
+      external_email: it.external_email,
+      external_phone: it.external_phone,
+      item_id: it.id,
+    }))
 
-  const servicePeople = mergeServiceAssignments(
+  const servicePeople = mergeServiceRecipients(
     choristers.map(c => ({ profile_id: c.profile_id, vocal_role: c.vocal_role })),
     internalProgramAssignees,
+    externalProgramAssignees,
   )
 
   if (!servicePeople.length) {
@@ -117,7 +129,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 4. Fetch profiles (email addresses) ──────────────────────────────────────
-  const profileIds = servicePeople.map(p => p.profile_id)
+  const profileIds = servicePeople.filter(p => p.profile_id).map(p => p.profile_id as string)
   const { data: rawProfiles } = await supabase
     .from('profiles')
     .select('id, full_name, email')
@@ -142,9 +154,40 @@ export async function POST(request: NextRequest) {
   const results: NotificationResult[] = []
 
   for (const person of servicePeople) {
+    // ── Invité externe (pas de compte Supabase — aucun n'est créé) ──────────────
+    if (!person.profile_id) {
+      if (!person.external_email) {
+        // Pas d'email — affiché dans la programmation, mais pas de notification, sans erreur
+        console.info(`[NOTIFY] SKIP (externe, pas d'email) ${person.external_name}`)
+        continue
+      }
+
+      const alreadyNotified = programItemRows
+        .filter(it => person.program_item_ids.includes(it.id))
+        .some(it => it.notified_email)
+
+      const data: ExternalProgramNotificationData = {
+        rehearsal: rehearsal as ExternalProgramNotificationData['rehearsal'],
+        external: { name: person.external_name!, email: person.external_email, notified_email: alreadyNotified },
+        label: person.role_labels.join(', '),
+      }
+
+      const result = await sendExternalProgramEmail(data)
+      results.push(result)
+
+      if (result.ok && !result.skipped && person.program_item_ids.length > 0) {
+        const { error: updateErr } = await supabase
+          .from('service_program_items')
+          .update({ notified_email: true })
+          .in('id', person.program_item_ids)
+        if (updateErr) console.error(`[NOTIFY] failed to mark notified (externe) for ${person.external_name}`, updateErr)
+      }
+      continue
+    }
+
+    // ── Choriste et/ou responsable interne ──────────────────────────────────────
     const profile = profileMap.get(person.profile_id)
     const existingChorister = choristers.find(c => c.profile_id === person.profile_id)
-    const personProgramRows = programItemRows.filter(it => it.profile_id === person.profile_id)
 
     if (!profile) {
       console.warn(`[NOTIFY] profile not found for profile_id=${person.profile_id}`)
@@ -154,7 +197,7 @@ export async function POST(request: NextRequest) {
 
     const alreadyNotified = existingChorister
       ? existingChorister.notified_email
-      : personProgramRows.some(it => it.notified_email)
+      : programItemRows.filter(it => person.program_item_ids.includes(it.id)).some(it => it.notified_email)
 
     const chorister = {
       id: existingChorister?.id ?? `program-${person.profile_id}`,
@@ -184,12 +227,11 @@ export async function POST(request: NextRequest) {
           .eq('id', existingChorister.id)
         if (updateErr) console.error(`[NOTIFY] failed to mark notified (chorister) for ${profile.full_name}`, updateErr)
       }
-      if (personProgramRows.length > 0) {
+      if (person.program_item_ids.length > 0) {
         const { error: updateErr } = await supabase
           .from('service_program_items')
           .update({ notified_email: true })
-          .eq('rehearsal_id', rehearsal_id)
-          .eq('profile_id', person.profile_id)
+          .in('id', person.program_item_ids)
         if (updateErr) console.error(`[NOTIFY] failed to mark notified (programme) for ${profile.full_name}`, updateErr)
       }
     }

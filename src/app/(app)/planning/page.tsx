@@ -7,7 +7,7 @@ import type { Profile, RehearsalChorister, ServiceProgramItemWithProfile } from 
 import { canManageContent } from '@/lib/roles'
 import { formatRehearsalDate, formatRehearsalTime } from '@/lib/rehearsal-time'
 import { buildWhatsAppMessage, cleanHaitianPhone } from '@/lib/whatsapp'
-import { mergeServiceAssignments } from '@/lib/service-program'
+import { mergeServiceRecipients } from '@/lib/service-program'
 
 function whatsappLink(
   phone: string,
@@ -105,12 +105,15 @@ export default async function PlanningPage() {
             (RehearsalChorister & { profiles?: { id: string; full_name: string; phone?: string | null } })[]
           const rehearsalProgramItems = allProgramItems.filter(pi => pi.rehearsal_id === rehearsal.id)
 
-          // Personnes en service = choristes ∪ responsables internes de la programmation (sans doublon)
-          const serviceRecipientCount = mergeServiceAssignments(
+          // Personnes en service = choristes ∪ responsables (internes + externes) de la programmation, sans doublon
+          const serviceRecipientCount = mergeServiceRecipients(
             rehearsalChoristers.map(rc => ({ profile_id: rc.profile_id, vocal_role: rc.vocal_role })),
             rehearsalProgramItems
               .filter((pi): pi is typeof pi & { profile_id: string } => !!pi.profile_id)
               .map(pi => ({ profile_id: pi.profile_id, label: pi.label })),
+            rehearsalProgramItems
+              .filter((pi): pi is typeof pi & { external_name: string } => !pi.profile_id && !!pi.external_name?.trim())
+              .map(pi => ({ label: pi.label, external_name: pi.external_name, external_email: pi.external_email, external_phone: pi.external_phone })),
           ).length
 
           // Songs formatted for WhatsApp links
