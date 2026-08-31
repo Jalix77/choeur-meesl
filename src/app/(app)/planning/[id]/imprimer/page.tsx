@@ -72,28 +72,26 @@ export default async function PrintServiceProgramPage({ params }: {
         </div>
 
         {/* Program items */}
-        <div className="program-content">
-          <ol className="fiche-program-list" style={{ listStyle: 'none', margin: 0, padding: 0, fontFamily: "'Cormorant Garamond', serif" }}>
-            {items.length > 0 ? items.map((item, i) => {
-              const name = item.profile_id
-                ? (item.profiles?.full_name ?? null)
-                : (item.external_name?.trim() || null)
-              return (
-                <li key={item.id} className="program-item" style={{ display: 'flex', gap: 8, padding: '9px 0', borderBottom: '1px solid #E2B36A40', fontSize: 16, color: '#3d1f09' }}>
-                  <span style={{ color: '#B87333', fontWeight: 700, flexShrink: 0, width: 22 }}>{i + 1}.</span>
-                  <span style={{ flex: 1 }}>
-                    {item.label} : <strong>{name ?? '—'}</strong>
-                    {item.note && <span className="fiche-item-note" style={{ fontStyle: 'italic', color: '#7A4A20', fontSize: 14 }}> — {item.note}</span>}
-                  </span>
-                </li>
-              )
-            }) : (
-              <li style={{ fontStyle: 'italic', color: '#8A5A2B', fontSize: 15 }}>Aucune programmation enregistrée pour ce culte.</li>
-            )}
-          </ol>
-        </div>
+        <ol className="fiche-program-list" style={{ listStyle: 'none', margin: 0, padding: 0, fontFamily: "'Cormorant Garamond', serif" }}>
+          {items.length > 0 ? items.map((item, i) => {
+            const name = item.profile_id
+              ? (item.profiles?.full_name ?? null)
+              : (item.external_name?.trim() || null)
+            return (
+              <li key={item.id} className="program-item" style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '9px 0', borderBottom: '1px solid #E2B36A40', fontSize: 16, color: '#3d1f09' }}>
+                <span className="item-number" style={{ color: '#B87333', fontWeight: 700, flexShrink: 0, width: 22 }}>{i + 1}.</span>
+                <span className="item-text" style={{ flex: 1 }}>
+                  {item.label} : <strong className="item-name">{name ?? '—'}</strong>
+                </span>
+                {item.note && <span className="fiche-item-note" style={{ fontStyle: 'italic', color: '#7A4A20', fontSize: 14, flexShrink: 0, whiteSpace: 'nowrap' }}>{item.note}</span>}
+              </li>
+            )
+          }) : (
+            <li style={{ fontStyle: 'italic', color: '#8A5A2B', fontSize: 15 }}>Aucune programmation enregistrée pour ce culte.</li>
+          )}
+        </ol>
 
-        {/* Verse + MEESL contact — kept inside the fiche, pinned to the bottom of the page when printed */}
+        {/* Verse + MEESL contact — kept inside the fiche, right after the programmation */}
         <div className="print-footer-block">
           <p className="fiche-verse" style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 13, color: '#8A5A2B', textAlign: 'center', margin: '28px 0 0', borderTop: '1px solid #E2B36A40', paddingTop: 14 }}>
             Jérémie 48:10a — « Maudit soit celui qui fait avec négligence l&apos;œuvre de l&apos;Éternel. »
@@ -117,12 +115,11 @@ export default async function PrintServiceProgramPage({ params }: {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm 10mm;
+            margin: 10mm 12mm;
           }
 
           html, body {
             width: 210mm;
-            min-height: 297mm;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
@@ -136,6 +133,14 @@ export default async function PrintServiceProgramPage({ params }: {
           iframe,
           .floating-widget,
           .chat-widget {
+            display: none !important;
+          }
+          /* Any other third-party fixed-position widget injected outside the fiche
+             (e.g. a deployment toolbar) — the fiche itself never uses fixed positioning */
+          body > div[style*="position: fixed"],
+          body > div[style*="position:fixed"],
+          body > div[style*="position: sticky"],
+          body > div[style*="position:sticky"] {
             display: none !important;
           }
 
@@ -157,42 +162,46 @@ export default async function PrintServiceProgramPage({ params }: {
             background: white !important;
           }
 
+          /* Natural flow, no forced page-filling height — the fiche is only as tall as its content */
           .print-sheet {
-            max-width: 100% !important;
-            margin: 0 !important;
+            max-width: 190mm !important;
+            width: 100% !important;
+            margin: 0 auto !important;
             padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
             border-radius: 0 !important;
             background: white !important;
             background-image: none !important;
-            display: flex;
-            flex-direction: column;
-            min-height: 277mm; /* fills the printable area so the footer settles at the bottom */
+            font-size: 12pt;
+            line-height: 1.3;
           }
 
-          .program-content { flex: 1; }
-          .print-footer-block { margin-top: auto; }
+          /* Header — kept close to its on-screen proportions, just slightly tightened */
+          .fiche-header { padding-bottom: 3mm !important; margin-bottom: 5mm !important; gap: 14px !important; }
+          .fiche-logo { width: 56px !important; height: 56px !important; }
+          .fiche-org-name { font-size: 13pt !important; }
+          .fiche-tagline { font-size: 10pt !important; margin-top: 2px !important; }
+          .fiche-subtitle { font-size: 7.5pt !important; margin-top: 2px !important; }
 
-          /* Compact sizing — print only, the on-screen preview is unchanged */
-          .fiche-header { padding-bottom: 8px !important; margin-bottom: 10px !important; gap: 12px !important; }
-          .fiche-logo { width: 48px !important; height: 48px !important; }
-          .fiche-org-name { font-size: 15px !important; }
-          .fiche-tagline { font-size: 11px !important; margin-top: 2px !important; }
-          .fiche-subtitle { font-size: 8px !important; margin-top: 2px !important; }
-          .fiche-title { font-size: 21px !important; margin: 0 0 8px !important; }
-          .fiche-meta { font-size: 11px !important; margin-bottom: 10px !important; gap: 4px 24px !important; }
+          /* Title + metadata — a real document hierarchy */
+          .fiche-title { font-size: 19pt !important; text-transform: uppercase; margin: 0 0 4mm !important; }
+          .fiche-meta { font-size: 10.5pt !important; margin-bottom: 5mm !important; }
 
-          .fiche-program-list { font-size: 11px !important; line-height: 1.2 !important; }
+          /* Programmation — 14 lines, compact but readable, duration right-aligned */
+          .fiche-program-list { font-size: 11pt !important; line-height: 1.25 !important; }
           .program-item {
-            padding: 4px 0 !important;
+            padding: 3mm 0 !important;
             break-inside: avoid;
             page-break-inside: avoid;
           }
-          .fiche-item-note { font-size: 9.5px !important; }
+          .item-name { font-weight: 700; }
+          .fiche-item-note { font-size: 9.5pt !important; }
 
-          .fiche-verse { font-size: 9.5px !important; margin: 10px 0 0 !important; padding-top: 8px !important; }
-          .fiche-footer { font-size: 9px !important; margin-top: 8px !important; padding-top: 6px !important; }
+          /* Verse + coordinates — follow the programmation directly, no forced bottom placement */
+          .print-footer-block { margin-top: 8mm !important; }
+          .fiche-verse { font-size: 9.5pt !important; margin: 0 !important; padding-top: 3mm !important; }
+          .fiche-footer { font-size: 9pt !important; margin-top: 4mm !important; padding-top: 2.5mm !important; }
         }
         @media screen {
           .print-sheet { min-height: 1123px; }
