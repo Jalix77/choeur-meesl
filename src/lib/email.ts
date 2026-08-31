@@ -382,17 +382,23 @@ export interface ExternalProgramNotificationData {
   }
   /** Rôle(s) assigné(s), combinés si l'invité intervient sur plusieurs éléments. */
   label: string
+  /**
+   * Lien public (page /public/programme/[token], sans compte requis) vers la
+   * programmation — jamais /planning, qui exige une connexion. Null si l'accès
+   * public n'a pas été activé pour ce culte : le lien est alors simplement omis.
+   */
+  publicUrl: string | null
 }
 
 export function buildExternalProgramEmailPayload(data: ExternalProgramNotificationData) {
-  const { rehearsal, external, label } = data
+  const { rehearsal, external, label, publicUrl } = data
   const date = fmtDate(rehearsal.starts_at)
   const time = fmtTime(rehearsal.starts_at)
   const location = rehearsal.location ?? 'À confirmer'
 
   const subject = `[Chœur de Louange] Programmation du culte — ${label}`
 
-  const textBody = [
+  const textLines = [
     `Bonjour ${external.name},`,
     '',
     'Vous êtes assigné(e) à la programmation du culte de la Mission Église Évangélique Sel et Lumière.',
@@ -401,13 +407,15 @@ export function buildExternalProgramEmailPayload(data: ExternalProgramNotificati
     `Date : ${date}`,
     `Heure : ${time}`,
     `Lieu : ${location}`,
-    '',
-    `Voir la programmation complète : ${APP_URL}/planning`,
+  ]
+  if (publicUrl) textLines.push('', `Voir la programmation complète : ${publicUrl}`)
+  textLines.push(
     '',
     'Mission Église Évangélique Sel et Lumière',
     'Chœur de Louange · 4, Delmas 48 · Port-au-Prince, Haïti',
     'meesl1410@gmail.com · (509) 37 97 1717',
-  ].join('\n')
+  )
+  const textBody = textLines.join('\n')
 
   const htmlBody = `<!DOCTYPE html>
 <html lang="fr">
@@ -465,12 +473,13 @@ export function buildExternalProgramEmailPayload(data: ExternalProgramNotificati
         </tr>
       </table>
 
+      ${publicUrl ? `
       <p style="margin:0;">
-        <a href="${APP_URL}/planning"
+        <a href="${publicUrl}"
            style="display:inline-block;background:#B87333;color:#fff;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;text-decoration:none;">
           📅 Voir la programmation complète
         </a>
-      </p>
+      </p>` : ''}
     </td>
   </tr>
 

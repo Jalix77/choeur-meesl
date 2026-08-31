@@ -19,8 +19,12 @@ interface Rehearsal {
   notes: string | null
   title?: string | null
   notify_selected?: boolean
+  public_token?: string | null
+  public_access_enabled?: boolean
   rehearsal_songs?: { songs: Song; order_index: number }[]
 }
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://choeur-meesl.vercel.app'
 
 interface Props {
   songs: Song[]
@@ -48,7 +52,12 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
     notes: rehearsal?.notes ?? '',
     notify_email: rehearsal?.notify_selected ?? false,
     notify_whatsapp: false,
+    public_access_enabled: rehearsal?.public_access_enabled ?? false,
   })
+
+  // Lien public de la programmation (invités externes) — connu après le premier enregistrement
+  const [publicToken, setPublicToken] = useState<string | null>(rehearsal?.public_token ?? null)
+  const [copyFeedback, setCopyFeedback] = useState('')
 
   const [selectedSongs, setSelectedSongs] = useState<string[]>(
     rehearsal?.rehearsal_songs?.map(rs => rs.songs.id) ?? []
@@ -122,9 +131,12 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
       location: form.location || null,
       notes: form.notes || null,
       notify_selected: form.notify_email,
+      public_access_enabled: form.public_access_enabled,
     }
 
     let rehearsalId = rehearsal?.id
+    // Le token existe déjà (colonne à défaut DB) dès qu'un culte a été enregistré une première fois
+    let currentPublicToken = publicToken
 
     if (rehearsal) {
       const { error: err } = await supabase.from('rehearsals').update(payload).eq('id', rehearsal.id)
@@ -133,6 +145,8 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
       const { data, error: err } = await supabase.from('rehearsals').insert(payload).select().single()
       if (err) { setError(err.message); setLoading(false); return }
       rehearsalId = data.id
+      currentPublicToken = data.public_token
+      setPublicToken(data.public_token)
     }
 
     if (rehearsalId) {
@@ -238,6 +252,9 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
             kind: 'external' as const,
           }
         })
+        const externalPublicUrl = (form.public_access_enabled && currentPublicToken)
+          ? `${APP_URL}/public/programme/${currentPublicToken}`
+          : null
         const links = buildWhatsAppLinks({
           targets,
           starts_at: payload.starts_at,
@@ -245,6 +262,7 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
           notes: payload.notes,
           songs: songList,
           hasProgram: validProgramItems.length > 0,
+          externalPublicUrl,
         })
         setWhatsappLinks(links)
         setLoading(false)
@@ -261,6 +279,34 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
   async function handleDelete() {
     if (!rehearsal || !confirm('Supprimer cette répétition ?')) return
     await supabase.from('rehearsals').delete().eq('id', rehearsal.id)
+    router.refresh()
+  }
+
+  function publicUrlFor(token: string) {
+    return `${APP_URL}/public/programme/${token}`
+  }
+
+  async function copyPublicLink() {
+    if (!publicToken) return
+    const url = publicUrlFor(publicToken)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopyFeedback('✓ Lien copié !')
+    } catch {
+      setCopyFeedback(url)
+    }
+    setTimeout(() => setCopyFeedback(''), 3000)
+  }
+
+  async function regenerateToken() {
+    if (!rehearsal) return
+    if (!confirm("Régénérer le lien public ? L'ancien lien cessera de fonctionner immédiatement.")) return
+    const newToken = crypto.randomUUID()
+    const { error: err } = await supabase.from('rehearsals').update({ public_token: newToken }).eq('id', rehearsal.id)
+    if (err) { setError(`Erreur : ${err.message}`); return }
+    setPublicToken(newToken)
+    setCopyFeedback('✓ Lien régénéré')
+    setTimeout(() => setCopyFeedback(''), 3000)
     router.refresh()
   }
 
@@ -490,6 +536,52 @@ export default function RehearsalManager({ songs, choristers, rehearsal, initial
           onChange={setProgramItems}
           choristers={choristers.map(c => ({ id: c.id, full_name: c.full_name }))}
         />
+
+        {/* ── Accès public de la programmation ── */}
+        <div className="border border-[#E2B36A]/50 rounded-xl p-3 bg-[#FBF6EC]/40 space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.public_access_enabled}
+              onChange={e => setField('public_access_enabled', e.target.checked)}
+              className="accent-[#B87333] w-4 h-4"
+            />
+            <span className="text-sm text-[#5A3318] font-medium">
+              Autoriser l&apos;accès public à cette programmation
+            </span>
+          </label>
+          <p className="text-xs text-[#B87333]/70 pl-6">
+            Permet à un invité externe (sans compte) de consulter la programmation et les chants,
+            via un lien secret — sans voir les coordonnées des membres.
+          </p>
+
+          {form.public_access_enabled && (
+            publicToken ? (
+              <div className="pl-6 flex flex-wrap items-center gap-2 pt-1">
+                <button type="button" onClick={copyPublicLink}
+                  className="text-xs bg-[#B87333] hover:bg-[#5A3318] text-white px-3 py-1.5 rounded-lg transition-colors">
+                  🔗 Copier le lien public
+                </button>
+                <button type="button" onClick={regenerateToken}
+                  className="text-xs border border-[#E2B36A]/60 text-[#B87333] px-3 py-1.5 rounded-lg hover:bg-[#E2B36A]/20 transition-colors">
+                  ↺ Régénérer le lien
+                </button>
+                {copyFeedback && <span className="text-xs text-green-700">{copyFeedback}</span>}
+              </div>
+            ) : (
+              <p className="text-xs text-[#B87333]/60 italic pl-6">
+                Le lien sera disponible après l&apos;enregistrement — rouvrez « Modifier » pour le copier.
+              </p>
+            )
+          )}
+
+          {!form.public_access_enabled && programItems.some(it => it.assignee_mode === 'external') && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1">
+              ⚠ Un invité externe est assigné à la programmation mais l&apos;accès public n&apos;est pas activé —
+              il ne recevra pas de lien pour la consulter.
+            </p>
+          )}
+        </div>
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
 

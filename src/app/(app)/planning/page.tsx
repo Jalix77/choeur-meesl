@@ -96,6 +96,7 @@ export default async function PlanningPage() {
         {rehearsals && rehearsals.length > 0 ? (rehearsals as Array<{
           id: string; starts_at: string; location: string | null; notes: string | null;
           title?: string | null; notify_selected?: boolean;
+          public_token?: string | null; public_access_enabled?: boolean;
           rehearsal_songs: { order_index: number; songs: { id: string; title: string } }[]
         }>).map((rehearsal) => {
           const isPast = new Date(rehearsal.starts_at) < new Date()

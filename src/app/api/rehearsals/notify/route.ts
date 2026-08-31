@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   // ── 1. Fetch rehearsal ───────────────────────────────────────────────────────
   const { data: rehearsal, error: rehearsalErr } = await supabase
     .from('rehearsals')
-    .select('id, title, starts_at, location, notes')
+    .select('id, title, starts_at, location, notes, public_token, public_access_enabled')
     .eq('id', rehearsal_id)
     .single()
 
@@ -62,6 +62,13 @@ export async function POST(request: NextRequest) {
     console.error('[NOTIFY] rehearsal not found', rehearsalErr)
     return NextResponse.json({ error: 'Répétition introuvable' }, { status: 404 })
   }
+
+  // Lien public (sans login) vers la programmation — pour les invités externes uniquement.
+  // Jamais /planning, qui exige un compte membre.
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://choeur-meesl.vercel.app'
+  const publicUrl = (rehearsal.public_access_enabled && rehearsal.public_token)
+    ? `${APP_URL}/public/programme/${rehearsal.public_token}`
+    : null
 
   // ── 2. Fetch songs for this rehearsal ────────────────────────────────────────
   const { data: rawSongs } = await supabase
@@ -170,6 +177,7 @@ export async function POST(request: NextRequest) {
         rehearsal: rehearsal as ExternalProgramNotificationData['rehearsal'],
         external: { name: person.external_name!, email: person.external_email, notified_email: alreadyNotified },
         label: person.role_labels.join(', '),
+        publicUrl,
       }
 
       const result = await sendExternalProgramEmail(data)

@@ -150,19 +150,25 @@ export function buildWhatsAppMessage(opts: {
   return lines.join('\n')
 }
 
-/** Message WhatsApp pour un invité externe assigné uniquement via la programmation du culte (pas de compte membre). */
+/**
+ * Message WhatsApp pour un invité externe assigné uniquement via la programmation
+ * du culte (pas de compte membre). Le lien vers la programmation n'est inclus que
+ * si un lien public (page /public/programme/[token], sans login) est fourni —
+ * jamais un lien vers /planning, qui exige un compte.
+ */
 export function buildExternalServiceWAMessage(opts: {
   name: string
   label: string
   starts_at: string
   location: string | null
+  publicUrl?: string | null
 }): string {
-  const { name, label, starts_at, location } = opts
+  const { name, label, starts_at, location, publicUrl } = opts
   const date = fmtDate(starts_at)
   const time = fmtTime(starts_at)
   const loc = location ?? 'À confirmer'
 
-  return [
+  const lines = [
     `Bonjour ${name},`,
     '',
     'Vous êtes assigné(e) au service du culte de la Mission Église Évangélique Sel et Lumière.',
@@ -171,9 +177,11 @@ export function buildExternalServiceWAMessage(opts: {
     `Date : ${date}`,
     `Heure : ${time}`,
     `Lieu : ${loc}`,
-    '',
-    `Voir la programmation : ${APP_URL}/planning`,
-  ].join('\n')
+  ]
+  if (publicUrl) {
+    lines.push('', `Voir la programmation : ${publicUrl}`)
+  }
+  return lines.join('\n')
 }
 
 export function buildWhatsAppLinks(opts: {
@@ -183,6 +191,8 @@ export function buildWhatsAppLinks(opts: {
   notes: string | null
   songs: { title: string; order_index: number }[]
   hasProgram?: boolean
+  /** Lien public (sans login) vers la programmation, pour les invités externes uniquement. */
+  externalPublicUrl?: string | null
 }): WhatsAppLink[] {
   return opts.targets.map(t => {
     const phone = t.phone?.trim() ?? null
@@ -196,6 +206,7 @@ export function buildWhatsAppLinks(opts: {
           label: t.vocal_role,
           starts_at: opts.starts_at,
           location: opts.location,
+          publicUrl: opts.externalPublicUrl,
         })
       : buildWhatsAppMessage({
           name: t.full_name,

@@ -168,6 +168,8 @@ export interface Database {
           location: string | null;
           notes: string | null;
           notify_selected: boolean;
+          public_token: string | null;
+          public_access_enabled: boolean;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -180,6 +182,8 @@ export interface Database {
           location?: string | null;
           notes?: string | null;
           notify_selected?: boolean;
+          public_token?: string | null;
+          public_access_enabled?: boolean;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -191,6 +195,8 @@ export interface Database {
           location?: string | null;
           notes?: string | null;
           notify_selected?: boolean;
+          public_token?: string | null;
+          public_access_enabled?: boolean;
           updated_at?: string;
         };
         Relationships: [];
