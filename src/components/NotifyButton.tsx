@@ -24,7 +24,7 @@ export default function NotifyButton({ rehearsalId, choristerCount }: Props) {
   if (choristerCount === 0) return null
 
   async function handleSend() {
-    if (!confirm(`Envoyer les notifications email aux ${choristerCount} choriste(s) assigné(s) ?`)) return
+    if (!confirm(`Envoyer les notifications email aux ${choristerCount} personne(s) en service (choristes + programmation) ?`)) return
 
     setState('loading')
     setResult(null)

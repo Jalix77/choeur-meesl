@@ -17,7 +17,7 @@ export interface RehearsalNotificationData {
     notes: string | null
   }
   chorister: {
-    id: string          // rehearsal_choristers.id
+    id: string          // rehearsal_choristers.id (ou service_program_items.id pour un responsable non-choriste)
     profile_id: string
     vocal_role: string
     notified_email: boolean
@@ -28,6 +28,10 @@ export interface RehearsalNotificationData {
     email: string | null
   }
   songs: { title: string; order_index: number }[]
+  /** Toutes les personnes en service (choristes + responsables de programmation), pour affichage dans l'email. */
+  allChoristers?: { full_name: string; vocal_role: string }[]
+  /** Programmation complète du culte, dans l'ordre. */
+  programItems?: { label: string; assignee_name: string | null }[]
 }
 
 export interface NotificationResult {
@@ -51,7 +55,7 @@ function fmtTime(iso: string) { return formatRehearsalTime(iso) }
 // ─── Payload builder (reusable for WhatsApp / other channels) ─────────────────
 
 export function buildNotificationPayload(data: RehearsalNotificationData) {
-  const { rehearsal, chorister, profile, songs } = data
+  const { rehearsal, chorister, profile, songs, allChoristers, programItems } = data
   const date = fmtDate(rehearsal.starts_at)
   const time = fmtTime(rehearsal.starts_at)
   const location = rehearsal.location ?? 'À confirmer'
@@ -64,15 +68,21 @@ export function buildNotificationPayload(data: RehearsalNotificationData) {
         .map((s, i) => `  ${i + 1}. ${s.title}`)
         .join('\n')
     : '  (aucun chant listé)'
+  const choristersList = allChoristers?.length
+    ? allChoristers.map(c => `  • ${c.full_name} — ${c.vocal_role}`).join('\n')
+    : ''
+  const programList = programItems?.length
+    ? programItems.map((it, i) => `  ${i + 1}. ${it.label} — ${it.assignee_name ?? 'Non assigné'}`).join('\n')
+    : ''
 
   const subject = `[Chœur de Louange] ${title}Nouvelle répétition`
 
-  const textBody = [
+  const textLines = [
     `Bonjour ${profile.full_name},`,
     '',
     'Vous êtes assigné(e) au service du Chœur de Louange MEESL.',
     '',
-    '── Détails de la répétition ──────────────',
+    '── Détails du service ────────────────────',
     `Date     : ${date}`,
     `Heure    : ${time}`,
     `Lieu     : ${location}`,
@@ -81,6 +91,10 @@ export function buildNotificationPayload(data: RehearsalNotificationData) {
     '',
     '── Chants au programme ──────────────────',
     songList,
+  ]
+  if (choristersList) textLines.push('', '── Choristes en service ──────────────────', choristersList)
+  if (programList) textLines.push('', '── Programmation du culte ────────────────', programList)
+  textLines.push(
     '',
     '─────────────────────────────────────────',
     'Merci de confirmer votre disponibilité auprès du responsable du chœur.',
@@ -90,7 +104,8 @@ export function buildNotificationPayload(data: RehearsalNotificationData) {
     'Mission Église Évangélique Sel et Lumière',
     'Chœur de Louange · 4, Delmas 48 · Port-au-Prince, Haïti',
     'meesl1410@gmail.com · (509) 37 97 1717',
-  ].join('\n')
+  )
+  const textBody = textLines.join('\n')
 
   const htmlBody = `<!DOCTYPE html>
 <html lang="fr">
@@ -171,6 +186,39 @@ export function buildNotificationPayload(data: RehearsalNotificationData) {
           <tr style="${i % 2 === 0 ? '' : 'background:#fff;'}border-bottom:1px solid #E2B36A30;">
             <td style="padding:8px 16px;font-size:13px;color:#B87333;width:28px;">${i + 1}.</td>
             <td style="padding:8px 16px;font-size:14px;color:#3d1f09;">${s.title}</td>
+          </tr>`)
+          .join('')}
+      </table>` : ''}
+
+      ${allChoristers?.length ? `
+      <!-- Choristers en service -->
+      <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#B87333;text-transform:uppercase;letter-spacing:1px;">
+        Choristes en service
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+        style="background:#FBF6EC;border:1px solid #E2B36A;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+        ${allChoristers
+          .map((c, i) => `
+          <tr style="${i % 2 === 0 ? '' : 'background:#fff;'}border-bottom:1px solid #E2B36A30;">
+            <td style="padding:8px 16px;font-size:14px;color:#3d1f09;">${c.full_name}</td>
+            <td style="padding:8px 16px;font-size:12px;color:#B87333;text-align:right;">${c.vocal_role}</td>
+          </tr>`)
+          .join('')}
+      </table>` : ''}
+
+      ${programItems?.length ? `
+      <!-- Programmation du culte -->
+      <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#B87333;text-transform:uppercase;letter-spacing:1px;">
+        Programmation du culte
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+        style="background:#FBF6EC;border:1px solid #E2B36A;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+        ${programItems
+          .map((it, i) => `
+          <tr style="${i % 2 === 0 ? '' : 'background:#fff;'}border-bottom:1px solid #E2B36A30;">
+            <td style="padding:8px 16px;font-size:13px;color:#B87333;width:28px;">${i + 1}.</td>
+            <td style="padding:8px 16px;font-size:14px;color:#3d1f09;">${it.label}</td>
+            <td style="padding:8px 16px;font-size:13px;color:${it.assignee_name ? '#3d1f09' : '#B8733380'};font-style:${it.assignee_name ? 'normal' : 'italic'};text-align:right;">${it.assignee_name ?? 'Non assigné'}</td>
           </tr>`)
           .join('')}
       </table>` : ''}

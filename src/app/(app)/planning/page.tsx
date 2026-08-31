@@ -2,12 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import RehearsalManager from '@/components/RehearsalManager'
 import NotifyButton from '@/components/NotifyButton'
-import type { Profile, RehearsalChorister } from '@/lib/database.types'
+import ServiceProgramList from '@/components/ServiceProgramList'
+import type { Profile, RehearsalChorister, ServiceProgramItemWithProfile } from '@/lib/database.types'
 import { canManageContent } from '@/lib/roles'
 import { formatRehearsalDate, formatRehearsalTime } from '@/lib/rehearsal-time'
 import { buildWhatsAppMessage, cleanHaitianPhone } from '@/lib/whatsapp'
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://choeur-meesl.vercel.app'
+import { mergeServiceAssignments } from '@/lib/service-program'
 
 function whatsappLink(
   phone: string,
@@ -17,10 +17,11 @@ function whatsappLink(
   location: string | null,
   notes: string | null,
   songs: { title: string; order_index: number }[],
+  hasProgram: boolean,
 ) {
   const cleaned = cleanHaitianPhone(phone)
   if (!cleaned) return '#'
-  const text = buildWhatsAppMessage({ name, vocal_role, starts_at: rehearsalDate, location, notes, songs })
+  const text = buildWhatsAppMessage({ name, vocal_role, starts_at: rehearsalDate, location, notes, songs, hasProgram })
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`
 }
 
@@ -52,6 +53,7 @@ export default async function PlanningPage() {
   // rehearsal_choristers — gracefully handle missing table
   const rehearsalIds = (rehearsals ?? []).map((r: { id: string }) => r.id)
   let allChoristers: RehearsalChorister[] = []
+  let allProgramItems: ServiceProgramItemWithProfile[] = []
   if (rehearsalIds.length > 0) {
     const { data, error: rcError } = await supabase
       .from('rehearsal_choristers')
@@ -59,9 +61,21 @@ export default async function PlanningPage() {
       .in('rehearsal_id', rehearsalIds)
     console.log('planning choristers error', rcError)
     allChoristers = (data ?? []) as unknown as RehearsalChorister[]
+
+    const { data: programData, error: programError } = await supabase
+      .from('service_program_items')
+      .select('*, profiles(id, full_name)')
+      .in('rehearsal_id', rehearsalIds)
+      .order('order_index')
+    console.log('planning program items error', programError)
+    allProgramItems = (programData ?? []) as unknown as ServiceProgramItemWithProfile[]
   }
 
   const choristers = (activeProfiles ?? []) as { id: string; full_name: string; phone?: string | null }[]
+
+  // Nom des membres actifs, pour résoudre les responsables assignés dans la programmation
+  const profileNameById: Record<string, string> = {}
+  for (const c of choristers) profileNameById[c.id] = c.full_name
 
   return (
     <div className="space-y-6">
@@ -89,6 +103,15 @@ export default async function PlanningPage() {
             .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
           const rehearsalChoristers = allChoristers.filter(rc => rc.rehearsal_id === rehearsal.id) as
             (RehearsalChorister & { profiles?: { id: string; full_name: string; phone?: string | null } })[]
+          const rehearsalProgramItems = allProgramItems.filter(pi => pi.rehearsal_id === rehearsal.id)
+
+          // Personnes en service = choristes ∪ responsables internes de la programmation (sans doublon)
+          const serviceRecipientCount = mergeServiceAssignments(
+            rehearsalChoristers.map(rc => ({ profile_id: rc.profile_id, vocal_role: rc.vocal_role })),
+            rehearsalProgramItems
+              .filter((pi): pi is typeof pi & { profile_id: string } => !!pi.profile_id)
+              .map(pi => ({ profile_id: pi.profile_id, label: pi.label })),
+          ).length
 
           // Songs formatted for WhatsApp links
           const songsForWA = songList.map((rs: { order_index: number; songs: { id: string; title: string } }) => ({
@@ -111,13 +134,19 @@ export default async function PlanningPage() {
                     {rehearsal.location && <p className="text-sm text-[#5A3318] mt-1">📍 {rehearsal.location}</p>}
                   </div>
                   {isAdmin && (
-                    <RehearsalManager
-                      rehearsal={rehearsal}
-                      songs={allSongs ?? []}
-                      choristers={choristers}
-                      initialChoristers={rehearsalChoristers}
-                      editMode
-                    />
+                    <div className="flex items-center gap-2">
+                      {serviceRecipientCount > 0 && (
+                        <NotifyButton rehearsalId={rehearsal.id} choristerCount={serviceRecipientCount} />
+                      )}
+                      <RehearsalManager
+                        rehearsal={rehearsal}
+                        songs={allSongs ?? []}
+                        choristers={choristers}
+                        initialChoristers={rehearsalChoristers}
+                        initialProgramItems={rehearsalProgramItems}
+                        editMode
+                      />
+                    </div>
                   )}
                 </div>
                 {rehearsal.notes && <p className="text-xs text-[#7A4A20] italic mt-2">{rehearsal.notes}</p>}
@@ -150,17 +179,9 @@ export default async function PlanningPage() {
               {/* ── 👥 Choristes en service ──────────────────────────────────── */}
               {rehearsalChoristers.length > 0 && (
                 <div className="border-t border-[#E2B36A]/30 px-4 sm:px-5 py-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide flex items-center gap-1.5">
-                      <span>👥</span> Choristes en service ({rehearsalChoristers.length})
-                    </p>
-                    {isAdmin && (
-                      <NotifyButton
-                        rehearsalId={rehearsal.id}
-                        choristerCount={rehearsalChoristers.length}
-                      />
-                    )}
-                  </div>
+                  <p className="text-xs font-semibold text-[#B87333] uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                    <span>👥</span> Choristes en service ({rehearsalChoristers.length})
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {rehearsalChoristers.map((rc) => {
                       const p = rc.profiles
@@ -184,6 +205,7 @@ export default async function PlanningPage() {
                                 rehearsal.location,
                                 rehearsal.notes,
                                 songsForWA,
+                                rehearsalProgramItems.length > 0,
                               )}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -200,6 +222,24 @@ export default async function PlanningPage() {
                     })}
                   </div>
                 </div>
+              )}
+
+              {/* ── 🗓 Programmation du culte ────────────────────────────────── */}
+              {rehearsalProgramItems.length > 0 && (
+                <>
+                  <ServiceProgramList items={rehearsalProgramItems} profileNameById={profileNameById} />
+                  {isAdmin && (
+                    <div className="px-4 sm:px-5 pb-3 -mt-1">
+                      <Link
+                        href={`/planning/${rehearsal.id}/imprimer`}
+                        target="_blank"
+                        className="inline-flex items-center gap-1.5 text-xs border border-[#B87333]/40 text-[#B87333] px-2.5 py-1.5 rounded-lg hover:bg-[#B87333]/10 transition-colors"
+                      >
+                        🖨 Imprimer la fiche technique
+                      </Link>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )

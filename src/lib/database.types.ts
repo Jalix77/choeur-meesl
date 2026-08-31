@@ -221,6 +221,48 @@ export interface Database {
         };
         Relationships: [];
       };
+      service_program_items: {
+        Row: {
+          id: string;
+          rehearsal_id: string;
+          order_index: number;
+          item_type: string;
+          label: string;
+          profile_id: string | null;
+          external_name: string | null;
+          note: string | null;
+          notified_email: boolean;
+          notified_whatsapp: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          rehearsal_id: string;
+          order_index?: number;
+          item_type?: string;
+          label: string;
+          profile_id?: string | null;
+          external_name?: string | null;
+          note?: string | null;
+          notified_email?: boolean;
+          notified_whatsapp?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          order_index?: number;
+          item_type?: string;
+          label?: string;
+          profile_id?: string | null;
+          external_name?: string | null;
+          note?: string | null;
+          notified_email?: boolean;
+          notified_whatsapp?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       rehearsal_songs: {
         Row: {
           id: string;
@@ -317,6 +359,10 @@ export type Rehearsal = Database['public']['Tables']['rehearsals']['Row'] & {
   created_by?: string | null
 }
 export type RehearsalSong = Database['public']['Tables']['rehearsal_songs']['Row']
+export type ServiceProgramItem = Database['public']['Tables']['service_program_items']['Row']
+export type ServiceProgramItemWithProfile = ServiceProgramItem & {
+  profiles?: Pick<Profile, 'id' | 'full_name'> | null
+}
 export type Announcement = Database['public']['Tables']['announcements']['Row']
 export type AnnouncementRecipient = Database['public']['Tables']['announcement_recipients']['Row']
 

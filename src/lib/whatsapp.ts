@@ -108,8 +108,10 @@ export function buildWhatsAppMessage(opts: {
   location: string | null
   notes: string | null
   songs: { title: string; order_index: number }[]
+  /** Une programmation du culte existe pour cette répétition — ajoute un lien plutôt que la liste complète. */
+  hasProgram?: boolean
 }): string {
-  const { name, vocal_role, starts_at, location, notes, songs } = opts
+  const { name, vocal_role, starts_at, location, notes, songs, hasProgram } = opts
   const date = fmtDate(starts_at)
   const time = fmtTime(starts_at)
   const loc = location ?? 'À confirmer'
@@ -139,6 +141,9 @@ export function buildWhatsAppMessage(opts: {
     '',
     `🔗 Voir le planning : ${APP_URL}/planning`,
   )
+  if (hasProgram) {
+    lines.push(`🗓 Voir la programmation complète du culte : ${APP_URL}/planning`)
+  }
 
   return lines.join('\n')
 }
@@ -149,6 +154,7 @@ export function buildWhatsAppLinks(opts: {
   location: string | null
   notes: string | null
   songs: { title: string; order_index: number }[]
+  hasProgram?: boolean
 }): WhatsAppLink[] {
   return opts.targets.map(t => {
     const phone = t.phone?.trim() ?? null
@@ -163,6 +169,7 @@ export function buildWhatsAppLinks(opts: {
       location: opts.location,
       notes: opts.notes,
       songs: opts.songs,
+      hasProgram: opts.hasProgram,
     })
     const url = `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`
     return { profile_id: t.profile_id, full_name: t.full_name, phone: cleaned, vocal_role: t.vocal_role, url, missingPhone: false }
