@@ -135,12 +135,20 @@ export default async function PrintServiceProgramPage({ params }: {
           .chat-widget {
             display: none !important;
           }
-          /* Any other third-party fixed-position widget injected outside the fiche
-             (e.g. a deployment toolbar) — the fiche itself never uses fixed positioning */
-          body > div[style*="position: fixed"],
-          body > div[style*="position:fixed"],
-          body > div[style*="position: sticky"],
-          body > div[style*="position:sticky"] {
+          /*
+            The small floating circular badge some testers see on the right of the printed
+            page is not rendered by this page or any component in this codebase — no chat/
+            toolbar/analytics widget is installed here (verified in package.json and every
+            component this route renders). It matches a third-party browser extension's
+            injected UI (these often live in the page's real DOM, sometimes even inside a
+            Shadow DOM our stylesheet cannot reach at all). As a best-effort net, hide any
+            fixed/sticky-positioned element that isn't part of the fiche itself — the fiche
+            never uses fixed or sticky positioning, so this cannot hide real content.
+          */
+          [style*="position: fixed"],
+          [style*="position:fixed"],
+          [style*="position: sticky"],
+          [style*="position:sticky"] {
             display: none !important;
           }
 
@@ -162,7 +170,12 @@ export default async function PrintServiceProgramPage({ params }: {
             background: white !important;
           }
 
-          /* Natural flow, no forced page-filling height — the fiche is only as tall as its content */
+          /*
+            Natural flow, no forced page-filling height — the fiche is only as tall as its
+            content (no min-height/height, no margin-top:auto anywhere in this stylesheet).
+            Sizes below are deliberately generous (not shrunk to the smallest that still fits)
+            so the fiche fills the page naturally instead of leaving a large empty gap.
+          */
           .print-sheet {
             max-width: 190mm !important;
             width: 100% !important;
@@ -174,34 +187,35 @@ export default async function PrintServiceProgramPage({ params }: {
             background: white !important;
             background-image: none !important;
             font-size: 12pt;
-            line-height: 1.3;
+            line-height: 1.35;
           }
 
-          /* Header — kept close to its on-screen proportions, just slightly tightened */
-          .fiche-header { padding-bottom: 3mm !important; margin-bottom: 5mm !important; gap: 14px !important; }
-          .fiche-logo { width: 56px !important; height: 56px !important; }
-          .fiche-org-name { font-size: 13pt !important; }
-          .fiche-tagline { font-size: 10pt !important; margin-top: 2px !important; }
-          .fiche-subtitle { font-size: 7.5pt !important; margin-top: 2px !important; }
+          /* Header */
+          .fiche-header { padding-bottom: 4mm !important; margin-bottom: 7mm !important; gap: 16px !important; }
+          .fiche-logo { width: 64px !important; height: 64px !important; }
+          .fiche-org-name { font-size: 14pt !important; }
+          .fiche-tagline { font-size: 10.5pt !important; margin-top: 3px !important; }
+          .fiche-subtitle { font-size: 8pt !important; margin-top: 3px !important; }
 
           /* Title + metadata — a real document hierarchy */
-          .fiche-title { font-size: 19pt !important; text-transform: uppercase; margin: 0 0 4mm !important; }
-          .fiche-meta { font-size: 10.5pt !important; margin-bottom: 5mm !important; }
+          .fiche-title { font-size: 20pt !important; text-transform: uppercase; margin: 0 0 6mm !important; }
+          .fiche-meta { font-size: 11pt !important; margin-bottom: 7mm !important; }
 
-          /* Programmation — 14 lines, compact but readable, duration right-aligned */
-          .fiche-program-list { font-size: 11pt !important; line-height: 1.25 !important; }
+          /* Programmation — 14 lines, readable and with room to breathe, duration right-aligned */
+          .fiche-program-list { font-size: 11.5pt !important; line-height: 1.3 !important; }
           .program-item {
-            padding: 3mm 0 !important;
+            padding: 4mm 0 !important;
             break-inside: avoid;
             page-break-inside: avoid;
           }
           .item-name { font-weight: 700; }
           .fiche-item-note { font-size: 9.5pt !important; }
 
-          /* Verse + coordinates — follow the programmation directly, no forced bottom placement */
-          .print-footer-block { margin-top: 8mm !important; }
-          .fiche-verse { font-size: 9.5pt !important; margin: 0 !important; padding-top: 3mm !important; }
-          .fiche-footer { font-size: 9pt !important; margin-top: 4mm !important; padding-top: 2.5mm !important; }
+          /* Verse + coordinates — follow the programmation with a generous but fixed gap,
+             never pushed toward the bottom of the page */
+          .print-footer-block { margin-top: 10mm !important; }
+          .fiche-verse { font-size: 10pt !important; margin: 0 !important; padding-top: 4mm !important; }
+          .fiche-footer { font-size: 9.5pt !important; margin-top: 5mm !important; padding-top: 3mm !important; }
         }
         @media screen {
           .print-sheet { min-height: 1123px; }
