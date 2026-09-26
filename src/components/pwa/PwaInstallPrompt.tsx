@@ -127,7 +127,7 @@ export default function PwaInstallPrompt() {
       <div className="rounded-xl border border-[#E2B36A]/50 bg-[#FBF6EC] shadow-lg shadow-black/10 p-4">
         <div className="flex items-start gap-3">
           <Image
-            src="/logo-meesl.png"
+            src="/logo-choeur-meesl.png"
             alt=""
             width={40}
             height={43}

@@ -60,7 +60,7 @@ export default function NavBar({ profile }: NavBarProps) {
 
           {/* Logo + name */}
           <Link href="/" className="flex items-center gap-2 flex-shrink-0" onClick={() => setOpen(false)}>
-            <Image src="/logo-meesl.png" alt="MEESL" width={32} height={32} className="object-contain flex-shrink-0" />
+            <Image src="/logo-choeur-meesl.png" alt="MEESL" width={32} height={32} className="object-contain flex-shrink-0" />
             <span className="font-cinzel text-white text-sm font-bold tracking-wide hidden sm:block">
               Chœur de Louange
             </span>

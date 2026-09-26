@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
-          <Image src="/logo-meesl.png" alt="MEESL Logo" width={80} height={80} className="object-contain" />
+          <Image src="/logo-choeur-meesl.png" alt="MEESL Logo" width={80} height={80} className="object-contain" />
         </div>
         <h1 className="font-cinzel text-2xl font-bold text-[#5A3318] tracking-wide">
           Mission Église Évangélique Sel et Lumière

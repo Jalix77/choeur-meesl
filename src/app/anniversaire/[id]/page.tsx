@@ -46,7 +46,7 @@ export default async function PublicCardPage({
       {/* Minimal header */}
       <header className="bg-[#5A3318] px-4 py-3 flex items-center justify-center gap-3">
         <div className="w-8 h-8 relative flex-shrink-0">
-          <Image src="/logo-meesl.png" alt="MEESL" fill className="object-contain" sizes="32px" />
+          <Image src="/logo-choeur-meesl.png" alt="MEESL" fill className="object-contain" sizes="32px" />
         </div>
         <span className="font-cinzel text-white text-sm font-bold tracking-wide">
           Chœur de Louange MEESL

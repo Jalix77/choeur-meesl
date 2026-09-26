@@ -45,7 +45,7 @@ export default async function PrintServiceProgramPage({ params }: {
       >
         {/* MEESL Header */}
         <header className="fiche-header" style={{ display: 'flex', alignItems: 'center', gap: 18, borderBottom: '2px solid #B87333', paddingBottom: 14, marginBottom: 20 }}>
-          <Image className="fiche-logo" src="/logo-meesl.png" alt="MEESL" width={72} height={72} style={{ objectFit: 'contain', flexShrink: 0 }} />
+          <Image className="fiche-logo" src="/logo-choeur-meesl.png" alt="MEESL" width={72} height={72} style={{ objectFit: 'contain', flexShrink: 0 }} />
           <div>
             <h1 className="fiche-org-name" style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 20, color: '#5A3318', margin: 0, letterSpacing: 0.5 }}>
               Mission Église Évangélique Sel et Lumière

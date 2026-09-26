@@ -7,7 +7,7 @@
 const CACHE_NAME = 'meesl-static-v1'
 
 const STATIC_PATH_PREFIXES = ['/_next/static/', '/icons/']
-const STATIC_EXACT_PATHS = ['/logo-meesl.png', '/manifest.webmanifest']
+const STATIC_EXACT_PATHS = ['/logo-choeur-meesl.png', '/manifest.webmanifest']
 const STATIC_EXTENSIONS = ['.woff', '.woff2', '.ttf', '.otf']
 
 function isCacheableStaticAsset(url) {
