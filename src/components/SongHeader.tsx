@@ -13,7 +13,7 @@ export default function SongHeader({ title, keySignature, tempo, timeSignature, 
     <div className="mb-6">
       {/* MEESL brand header */}
       <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[#E2B36A]/50">
-        <Image src="/logo-meesl.png" alt="Logo MEESL" width={48} height={48} className="object-contain" />
+        <Image src="/logo-choeur-meesl.png" alt="Logo MEESL" width={48} height={48} className="object-contain" />
         <div>
           <p className="font-cinzel text-xs font-bold uppercase tracking-widest text-[#5A3318]">
             Mission Église Évangélique Sel et Lumière
