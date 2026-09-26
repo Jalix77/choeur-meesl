@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import NavBar from '@/components/NavBar'
+import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt'
+import RegisterServiceWorker from '@/components/pwa/RegisterServiceWorker'
 import type { Profile } from '@/lib/database.types'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -33,6 +35,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           meesl1410@gmail.com · (509) 37 97 1717
         </p>
       </footer>
+      <PwaInstallPrompt />
+      <RegisterServiceWorker />
     </div>
   )
 }
