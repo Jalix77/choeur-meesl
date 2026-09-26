@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -28,7 +29,25 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className="min-h-screen bg-[#FBF6EC]">{children}</body>
+      <body className="min-h-screen bg-[#FBF6EC]">
+        {/*
+          Capture `beforeinstallprompt` avant l'hydratation React : sur une visite où le
+          service worker est déjà actif, Chrome peut déclencher l'événement avant que le
+          composant PwaInstallPrompt ait fini de monter et d'attacher son écouteur. Ce
+          script s'exécute plus tôt (beforeInteractive) et relaie l'événement capturé.
+        */}
+        <Script id="pwa-install-capture" strategy="beforeInteractive">
+          {`
+            window.__meeslDeferredInstallPrompt = null;
+            window.addEventListener('beforeinstallprompt', function (e) {
+              e.preventDefault();
+              window.__meeslDeferredInstallPrompt = e;
+              window.dispatchEvent(new Event('meesl:beforeinstallprompt'));
+            });
+          `}
+        </Script>
+        {children}
+      </body>
     </html>
   )
 }

@@ -12,6 +12,12 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
 
+declare global {
+  interface Window {
+    __meeslDeferredInstallPrompt?: BeforeInstallPromptEvent | null
+  }
+}
+
 type Variant = 'android' | 'ios'
 
 function isStandalone(): boolean {
@@ -66,11 +72,27 @@ export default function PwaInstallPrompt() {
 
     let showTimer: ReturnType<typeof setTimeout> | undefined
 
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault()
-      setDeferredPrompt(event as BeforeInstallPromptEvent)
+    const captureInstallPrompt = (event: BeforeInstallPromptEvent) => {
+      setDeferredPrompt(event)
       setVariant('android')
       showTimer = setTimeout(() => setVisible(true), SHOW_DELAY_MS)
+    }
+
+    // Le script inline (beforeInteractive, dans layout.tsx) attache son propre
+    // écouteur avant l'hydratation React et relaie l'événement ici — cela évite
+    // de perdre `beforeinstallprompt` s'il se déclenche avant que ce composant
+    // ait fini de monter (fréquent quand le service worker est déjà actif).
+    if (window.__meeslDeferredInstallPrompt) {
+      const alreadyCaptured = window.__meeslDeferredInstallPrompt
+      window.__meeslDeferredInstallPrompt = null
+      showTimer = setTimeout(() => captureInstallPrompt(alreadyCaptured), 0)
+    }
+
+    const handleRelayedPrompt = () => {
+      if (window.__meeslDeferredInstallPrompt) {
+        captureInstallPrompt(window.__meeslDeferredInstallPrompt)
+        window.__meeslDeferredInstallPrompt = null
+      }
     }
 
     const handleAppInstalled = () => {
@@ -79,7 +101,7 @@ export default function PwaInstallPrompt() {
       writeDismissedAt(Date.now())
     }
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('meesl:beforeinstallprompt', handleRelayedPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
 
     if (isIos() && isSafari()) {
@@ -90,7 +112,7 @@ export default function PwaInstallPrompt() {
     }
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('meesl:beforeinstallprompt', handleRelayedPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
       if (showTimer) clearTimeout(showTimer)
     }
